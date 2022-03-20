@@ -1,0 +1,1 @@
+추론 모델을 serving하는 inference server입니다.
