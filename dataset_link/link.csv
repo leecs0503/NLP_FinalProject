@@ -35,3 +35,11 @@ COCO 2017 Train/Val annotation,http://images.cocodataset.org/annotations/annotat
 COCO 2017 Stuff Train/Val annotation,http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip,stuff_annotations_trainval2017.zip,zip
 COCO 2017 Panoptic Train/Val annotations,http://images.cocodataset.org/annotations/panoptic_annotations_trainval2017.zip,panoptic_annotations_trainval2017.zip,zip
 COCO 2017 Testing Image info,http://images.cocodataset.org/annotations/image_info_test2017.zip,image_info_test2017.zip,zip
+
+VQA annotation 2.0, https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Annotations_Train_mscoco.zip, v2_Annotations_Train_mscoco.zip, zip
+VisualGenome Image Part 1, https://cs.stanford.edu/people/rak248/VG_100K_2/images.zip, images.zip, zip
+VisualGenome Image Part 2, https://cs.stanford.edu/people/rak248/VG_100K_2/images2.zip, images2.zip, zip
+VisualGenome QA ver 1.2, https://visualgenome.org/static/data/dataset/question_answers.json.zip, question_answer.json.zip, zip
+DAQUAR QA pair, http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.train.txt, qa.894.raw.train.txt, txt
+SQUAD 2.0 train, https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json, train-v2.0.json, json
+NYU Depth Images, http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/nyu_depth_images.tar, nyu_depth_images, tar
