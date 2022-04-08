@@ -1,8 +1,8 @@
-from logging import raiseExceptions
 import torch
 import torch.nn as nn
 import torchvision.models as models
 import abc
+
 
 class Model(nn.Module, abc.ABC):
     def __init__(self):
@@ -42,13 +42,14 @@ class ImgEncoder(Model):
 
         return image_feature
 
+
 class QstEncoder(Model):
     def __init__(self, qst_vocab_size, word_embed_size, embed_size, num_layers, hidden_size):
         super().__init__()
         self.word2vec = nn.Embedding(qst_vocab_size, word_embed_size)
         self.tanh = nn.Tanh()
         self.lstm = nn.LSTM(word_embed_size, hidden_size, num_layers)
-        self.fc = nn.Linear(2*num_layers*hidden_size, embed_size)
+        self.fc = nn.Linear(2 * num_layers * hidden_size, embed_size)
 
     def forward(self, **kwargs):
         question = kwargs["question"]
@@ -64,6 +65,7 @@ class QstEncoder(Model):
         qst_feature = self.fc(qst_feature)                            # [batch_size, embed_size]
 
         return qst_feature
+
 
 class VQAModel(Model):
     def __init__(self, embed_size, qst_vocab_size, ans_vocab_size, word_embed_size, num_layers, hidden_size):

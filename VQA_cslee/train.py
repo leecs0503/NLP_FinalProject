@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import argparse
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -8,8 +7,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def main(config):
     pass
 
+
 def train():
     pass
+
 
 def define_argparse():
     p = argparse.ArgumentParse()
@@ -18,6 +19,7 @@ def define_argparse():
 
     config = p.parse_args()
     return config
+
 
 if __name__ == '__main__':
     config = define_argparse()

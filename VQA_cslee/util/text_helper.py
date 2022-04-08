@@ -20,7 +20,7 @@ def load_str_list(fname):
 class VocabDict:
     def __init__(self, vocab_file):
         self.word_list = load_str_list(vocab_file)
-        self.word2idx_dict = {w:n_w for n_w, w in enumerate(self.word_list)}
+        self.word2idx_dict = {w: n_w for n_w, w in enumerate(self.word_list)}
         self.vocab_size = len(self.word_list)
         self.unk2idx = self.word2idx_dict['<unk>'] if '<unk>' in self.word2idx_dict else None
 

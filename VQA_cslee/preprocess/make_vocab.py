@@ -1,8 +1,8 @@
 import os
 import argparse
-import numpy as np
 import json
 import re
+
 
 def make_quest_vocab(input_dir: str, output_dir: str, n_answers: int):
     """
@@ -23,8 +23,9 @@ def make_quest_vocab(input_dir: str, output_dir: str, n_answers: int):
     for file_name in file_list:
         file_path = os.path.join(question_dir, file_name)
         _, file_extensions = os.path.splitext(file_path)
-        
-        if file_extensions != '.json': continue
+
+        if file_extensions != '.json':
+            continue
 
         print(f"read {file_path}")
         with open(file_path) as f:
@@ -41,6 +42,7 @@ def make_quest_vocab(input_dir: str, output_dir: str, n_answers: int):
 
     print(f"Write Question Vocab Complete (Size = {len(quest_vocab)}, path = {quest_vocab_file_path})")
 
+
 def make_ans_vocab(input_dir: str, output_dir: str, n_answers: int):
     # Make Answer Vocab
     print("(Start) Make Answer Vocab")
@@ -52,8 +54,9 @@ def make_ans_vocab(input_dir: str, output_dir: str, n_answers: int):
     for file_name in file_list:
         file_path = os.path.join(answer_dir, file_name)
         _, file_extensions = os.path.splitext(file_path)
-        
-        if file_extensions != '.json': continue
+
+        if file_extensions != '.json':
+            continue
 
         print(f"read {file_path}")
         with open(file_path) as f:
@@ -68,18 +71,20 @@ def make_ans_vocab(input_dir: str, output_dir: str, n_answers: int):
                 else:
                     answer_vocab[word] = 1
     answer_vocab[unknown_str] = 1e9
-    assert unknown_str in answer_vocab
-    answer_vocab = sorted(answer_vocab.items(), key = lambda item: item[1], reverse = True)
-    if n_answers != 0: answer_vocab = answer_vocab[:n_answers]
-    
+    assert (unknown_str in answer_vocab)
+    answer_vocab = sorted(answer_vocab.items(), key=lambda item: item[1], reverse=True)
+    if n_answers != 0:
+        answer_vocab = answer_vocab[:n_answers]
+
     print("(End) Done")
-    
+
     with open('../datasets/vocab_answers.txt', 'w') as f:
-        f.writelines([key+'\n' for (key, v) in answer_vocab])
-    
+        f.writelines([key + '\n' for (key, v) in answer_vocab])
+
     print("Write Done")
     print(f"The number of total words of answer: {len(answer_vocab)}, we keep {n_answers} answers by occurency")
     print(f"The minimum occurency of top {n_answers} is {answer_vocab[n_answers-1:n_answers][0][1]}")
+
 
 def main(args):
     input_dir, output_dir = args.input_dir, args.output_dir
@@ -87,6 +92,7 @@ def main(args):
 
     make_quest_vocab(input_dir, output_dir, n_answers)
     make_ans_vocab(input_dir, output_dir, n_answers)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -97,4 +103,4 @@ if __name__ == '__main__':
                         help='the number of answers to be kept in vocab, 0 is use all vocab (not recommended)')
 
     args = parser.parse_args()
-    main(args)  
+    main(args)
