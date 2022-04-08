@@ -69,7 +69,7 @@ def make_ans_vocab(input_dir: str, output_dir: str, n_answers: int):
                     answer_vocab[word] = 1
     answer_vocab[unknown_str] = 1e9
     assert unknown_str in answer_vocab
-    answer_vocab = sorted(answer_vocab.items(), key = lambda item: item[1])
+    answer_vocab = sorted(answer_vocab.items(), key = lambda item: item[1], reverse = True)
     if n_answers != 0: answer_vocab = answer_vocab[:n_answers]
     
     print("(End) Done")
@@ -85,7 +85,7 @@ def main(args):
     input_dir, output_dir = args.input_dir, args.output_dir
     n_answers = args.n_answers
 
-    # make_quest_vocab(input_dir, output_dir, n_answers)
+    make_quest_vocab(input_dir, output_dir, n_answers)
     make_ans_vocab(input_dir, output_dir, n_answers)
 
 if __name__ == '__main__':
