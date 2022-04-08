@@ -1,1 +1,37 @@
 이름, 링크, 파일 이름, 압축형식
+KVQA dataset(Korean),https://drive.google.com/drive/folders/1IQazOJtNTBql51woveN4zb6NplxH7eVl,null,null
+AI-hub VQA dataset,https://aihub.or.kr/aidata/8006/download,null,null
+DAQUAR train question-answer pair,https://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.37.raw.train.txt,qa.37.raw.train.txt,txt
+DAQUAR test question-answer pair,https://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.test.txt,qa.894.raw.test.txt,txt
+DAQUAR image file,http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/nyu_depth_images.tar,nyu_depth_images.tar,tar
+CLEVR main dataset,https://dl.fbaipublicfiles.com/clevr/CLEVR_v1.0.zip,CLEVR_v1.0.zip,zip
+CLEVR CoGenT,https://dl.fbaipublicfiles.com/clevr/CLEVR_CoGenT_v1.0.zip,CLEVR_CoGenT_v1.0.zip,zip
+MemexQA question and anwer,https://memexqa.cs.cmu.edu/memexqa_dataset_v1.1/qas.json,qas.json,json
+MemexQA image,https://memexqa.cs.cmu.edu/memexqa_dataset_v1.1/shown_photos.tgz,shown_photos.tgz,tgz
+TDIUC dataset,https://kushalkafle.com/data/TDIUC.zip,TDIUC.zip,zip
+VisDial train set,https://www.dropbox.com/s/ix8keeudqrd8hn8/visdial_1.0_train.zip?dl=0,visdial_1.0_train.zip,zip
+VisDial Validation set,https://www.dropbox.com/s/ibs3a0zhw74zisc/visdial_1.0_val.zip?dl=0,visdial_1.0_val.zip,zip
+VisDial Validation Image,https://www.dropbox.com/s/twmtutniktom7tu/VisualDialog_val2018.zip?dl=0,VisualDialog_val2018.zip,zip
+VisDial Test set,https://www.dropbox.com/s/o7mucbre2zm7i5n/visdial_1.0_test.zip?dl=0,visdial_1.0_test.zip,zip
+VIsDial Test Image,https://www.dropbox.com/s/mwlrg31hx0430mt/VisualDialog_test2018.zip?dl=0,VisualDialog_test2018.zip,zip
+Visual7W image,http://vision.stanford.edu/yukezhu/visual7w_images.zip,visual7w_images.zip,zip
+Visual7W Telling QA,http://ai.stanford.edu/~yukez/papers/resources/dataset_v7w_telling.zip,dataset_v7w_telling.zip,zip
+Visual7W Pointing QA,http://ai.stanford.edu/~yukez/papers/resources/dataset_v7w_pointing.zip,dataset_v7w_pointing.zip,zip
+TallyQA dataset,https://github.com/manoja328/TallyQA_dataset/archive/refs/heads/master.zip,master.zip,zip
+KVQA dataset image,http://dosa.cds.iisc.ac.in/kvqa/KVQAimgs.tar.gz,KVQAimgs.tar.gz,gz
+KVQA reference image,http://dosa.cds.iisc.ac.in/kvqa/KVQArefImgs.tar.gz,KVQArefImgs.tar.gz,gz
+KVQA dataset.json,http://dosa.cds.iisc.ac.in/kvqa/dataset.json,dataset.json,json
+COCO 2014 Train image,http://images.cocodataset.org/zips/train2014.zip,train2014.zip,zip
+COCO 2014 Val image,http://images.cocodataset.org/zips/val2014.zip,val2014.zip,zip
+COCO 2014 Test image,http://images.cocodataset.org/zips/test2014.zip,test2014.zip,zip
+COCO 2014 Train/Val annotations,http://images.cocodataset.org/annotations/annotations_trainval2014.zip,annotations_trainval2014.zip,zip
+COCO 2014 Test image info,http://images.cocodataset.org/annotations/image_info_test2014.zip,image_info_test2014.zip,zip
+COCO 2015 Test image,http://images.cocodataset.org/zips/test2015.zip,test2015.zip,zip
+COCO 2015 Test image info,http://images.cocodataset.org/annotations/image_info_test2015.zip,image_info_test2015.zip,zip
+COCO 2017 Train image,http://images.cocodataset.org/zips/train2017.zip,train2017.zip,zip
+COCO 2017 Val image,http://images.cocodataset.org/zips/val2017.zip,val2017.zip,zip
+COCO 2017 Test image,http://images.cocodataset.org/zips/test2017.zip,test2017.zip,zip
+COCO 2017 Train/Val annotation,http://images.cocodataset.org/annotations/annotations_trainval2017.zip,annotations_trainval2017.zip,zip
+COCO 2017 Stuff Train/Val annotation,http://images.cocodataset.org/annotations/stuff_annotations_trainval2017.zip,stuff_annotations_trainval2017.zip,zip
+COCO 2017 Panoptic Train/Val annotations,http://images.cocodataset.org/annotations/panoptic_annotations_trainval2017.zip,panoptic_annotations_trainval2017.zip,zip
+COCO 2017 Testing Image info,http://images.cocodataset.org/annotations/image_info_test2017.zip,image_info_test2017.zip,zip
