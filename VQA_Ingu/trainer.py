@@ -93,6 +93,9 @@ def main(args):
                     print('| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}'
                           .format(phase.upper(), epoch+1, args.num_epochs, batch_idx, int(batch_step_size), loss.item()))
 
+            if phase == 'train':
+                scheduler.step()
+
             if (epoch+1) % args.save_step == 0:
                 torch.save({'epoch': epoch+1, 'state_dict': model.state_dict()},
                        os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch+1)))
