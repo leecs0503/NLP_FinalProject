@@ -1,4 +1,6 @@
 [flake8]
+exclude =
+    datasets
 ignore =
     E121,
     E126,
