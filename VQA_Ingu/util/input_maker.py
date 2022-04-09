@@ -1,6 +1,6 @@
 import json
 import os
-import text_helper
+import util.text_helper as text_helper
 
 
 def extract_answers(q_answers, valid_answer_set):
@@ -24,7 +24,9 @@ def vqa_processing(image_dir, annotation_file, question_file, valid_answer_set, 
     image_name_template = 'COCO_' + coco_set_name + '_%012d'
     unk_ans_count = 0
     dataset = []
-    for q in questions:
+    for n_q, q in enumerate(questions):
+        if (n_q + 1) % 10000 == 0:
+            print('processing %d / %d' % (n_q + 1, len(questions)))
         image_id = q['image_id']
         question_id = q['question_id']
         image_name = image_name_template % image_id
