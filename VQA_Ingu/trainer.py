@@ -15,35 +15,27 @@ def main(args):
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs(args.model_dir, exist_ok=True)
 
-    data_loader = {
-        'train': get_loader(
-            input_dir=args.input_dir,
-            input_vqa='train.npy',
-            max_qst_length=args.max_question_length,
-            max_num_ans=args.max_num_ans,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers
-        ),
-        'valid': get_loader(
-            input_dir=args.input_dir,
-            input_vqa='valid.npy',
-            max_qst_length=args.max_question_length,
-            max_num_ans=args.max_num_ans,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers
-        )
-    }
+    data_loader = get_loader(
+        input_dir=args.input_dir,
+        input_vqa_train='train.npy',
+        input_vqa_valid='valid.npy',
+        max_qst_length=args.max_question_length,
+        max_num_ans=args.max_num_ans,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers
+    )
 
-    question_vocabulary_size = data_loader['train'].dataset.question_vocabulary.vocabulary_size
-    ans_vocabulary_size = data_loader['train'].dataset.ans_vocabulary.vocabulary_size
+    question_vocabulary_size = data_loader['train'].dataset.question_vocabulary.vocab_size
+    ans_vocabulary_size = data_loader['train'].dataset.answer_vocabulary.vocab_size
 
     model = VQAModel(
         embed_size=args.embed_size,
-        question_vocab_size=question_vocabulary_size,
-        ans_vocab_size=ans_vocabulary_size,
+        question_vocabulary_size=question_vocabulary_size,
+        answer_vocabulary_size=ans_vocabulary_size,
         word_embed_size=args.word_embed_size,
         num_layers=args.num_layers,
-        hidden_size=args.hidden_layer_size).to(device)
+        hidden_layer_size=args.hidden_layer_size
+    ).to(device)
 
     if args.load_step != 0:
         model.load_state_dict(torch.load(os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(args.load_step))))
@@ -57,7 +49,7 @@ def main(args):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(args.load_model, args.num_epochs):
+    for epoch in range(args.load_step, args.num_epochs):
         for phase in ['train', 'valid']:
             running_loss = 0.0
             running_corr_exp = 0
@@ -104,7 +96,7 @@ def main(args):
 
 
 
-if __name__ == 'main':
+if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
@@ -130,7 +122,7 @@ if __name__ == 'main':
     )
 
     parser.add_argument(
-        '--max_qustion_length',
+        '--max_question_length',
         type=int,
         default=30,
         help='maximum length of question. \
