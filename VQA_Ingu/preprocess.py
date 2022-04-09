@@ -18,7 +18,7 @@ def main(args):
     else:
         image_preprocess.resize_images(image_input_dir, image_output_dir, image_size)
         print('Done.')
-    
+
     print('2. Preprocessing text...')
 
     question_input_dir = os.path.join(args.input_dir, 'Questions')
@@ -29,7 +29,7 @@ def main(args):
         text_preprocess.make_vocab_questions(question_input_dir, args.output_dir)
         text_preprocess.make_vocab_answers(annotation_input_dir, args.n_answers, args.output_dir)
         print('Done.')
-    
+
     print('3. Creating VQA inputs...')
 
     image_dir = os.path.join(image_output_dir, '%s')
