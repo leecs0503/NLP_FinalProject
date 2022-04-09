@@ -59,11 +59,14 @@ class VQA_Dataset(data.Dataset):
 
         image_rgb = Image.open(vqa_data.image_path).convert("RGB")
         print(type(image_rgb))
-
+        
+        image = self.transform(image_rgb) if self.transform else image_rgb
+            
         return VQA_Data(
-            image=image_rgb,
-            question=1,
-            answer=1
+            image=image,
+            # todo: question, answer need to use vocab_dictionary
+            question=vqa_data.question_str,
+            answer=vqa_data.valid_answers
         )
 
 

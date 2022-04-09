@@ -32,11 +32,12 @@ def train(
         valid_data_path=os.path.join(input_dir, 'valid.npy'),
         qst_vocab_path=os.path.join(input_dir, 'vocab_questions.txt'),
         ans_vocab_path=os.path.join(input_dir, 'vocab_answers.txt'),
-        max_qst_length=args.max_qst_length,
-        max_num_ans=args.max_num_ans,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers
+        max_qst_length=max_qst_length,
+        max_num_ans=max_num_ans,
+        batch_size=batch_size,
+        num_workers=num_workers
     )
+
     # 학습 Epoch 시작
 
 
