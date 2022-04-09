@@ -1,0 +1,12 @@
+~
+*.npy
+*.swp
+.ipynb_checkpoints
+.DS_Store
+
+datasets/
+models/
+logs/
+
+__pycache__
+tmp
