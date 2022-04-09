@@ -44,7 +44,7 @@ def make_vocab_answers(input_dir, n_answers, output_dir):
                 answers[word] += 1
 
     answers = sorted(answers.items(), key=lambda item: item[1], reverse=True)
-    answers = [w for w,v in answers]
+    answers = [w for w, v in answers]
     assert('<unk>' not in answers)
     top_answers = ['<unk>'] + answers[:n_answers - 1]
 
