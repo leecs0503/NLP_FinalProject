@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import numpy as np
-
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from util.text_helper import tokenize, VocabDict
 
