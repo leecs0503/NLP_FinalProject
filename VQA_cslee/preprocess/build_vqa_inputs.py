@@ -42,7 +42,9 @@ def vqa_processing(input_dir, valid_answer_set, data_set):
             question["question_id"],
         )
         image_name = f"COCO_{data_set}_{image_id:012d}"
-        image_path = os.path.join(abs_input_path, "Resized_Images", data_set, image_name + ".jpg")
+        image_path = os.path.join(
+            abs_input_path, "Resized_Images", data_set, image_name + ".jpg"
+        )
         question_tokens = tokenize(question_str)
 
         iminfo = dict(

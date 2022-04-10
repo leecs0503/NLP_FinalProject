@@ -28,12 +28,13 @@ class VQA_Data:
         self.question = question
         self.answer_label = answer_label
         self.answer_multi_choice = answer_multi_choice
+
     def to_dict(self):
         return {
             "image": self.image,
             "question": self.question,
             "answer_label": self.answer_label,
-            "answer_multi_choice": self.answer_multi_choice
+            "answer_multi_choice": self.answer_multi_choice,
         }
 
 
@@ -83,10 +84,17 @@ class VQA_Dataset(data.Dataset):
             ans2idx = np.random.choice(ans2idc)
             answer_label = ans2idx
 
-            mul2idc = list([-1] * self.max_num_ans)       # padded with -1 (no meaning) not used in 'ans_vocab'
-            mul2idc[:len(ans2idc)] = ans2idc         # our model should not predict -1
+            mul2idc = list(
+                [-1] * self.max_num_ans
+            )  # padded with -1 (no meaning) not used in 'ans_vocab'
+            mul2idc[: len(ans2idc)] = ans2idc  # our model should not predict -1
             answer_multi_choice = mul2idc  # for evaluation metric of 'multiple choice'
-        return VQA_Data(image=image, question=quest_idx_list, answer_label=answer_label, answer_multi_choice=answer_multi_choice).to_dict()
+        return VQA_Data(
+            image=image,
+            question=quest_idx_list,
+            answer_label=answer_label,
+            answer_multi_choice=answer_multi_choice,
+        ).to_dict()
 
     def get_vocab_size(self, vocab_type):
         if vocab_type == "question":

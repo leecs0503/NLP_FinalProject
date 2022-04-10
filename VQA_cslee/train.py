@@ -32,7 +32,7 @@ def train(
     gamma: float,
     # train setting
     num_epochs: int,
-    save_step: int
+    save_step: int,
 ):
     """VQA model에 대해 train"""
 
@@ -103,7 +103,7 @@ def train(
 
                 with torch.set_grad_enabled(phase == "train"):
 
-                    output = model(image, question)      # [batch_size, ans_vocab_size=1000]
+                    output = model(image, question)  # [batch_size, ans_vocab_size=1000]
                     _, pred_exp1 = torch.max(output, 1)  # [batch_size]
                     _, pred_exp2 = torch.max(output, 1)  # [batch_size]
                     loss = criterion(output, label)
@@ -209,7 +209,7 @@ def main(args):
         gamma=args.gamma,
         # train setting
         num_epochs=args.num_epochs,
-        save_step=args.save_step
+        save_step=args.save_step,
     )
 
 
@@ -240,7 +240,10 @@ if __name__ == "__main__":
 
     # model setting
     parser.add_argument(
-        "--image_model_name", type=str, default="vgg19", help="image model name (one of ['vgg19'])"
+        "--image_model_name",
+        type=str,
+        default="vgg19",
+        help="image model name (one of ['vgg19'])",
     )
 
     parser.add_argument(
