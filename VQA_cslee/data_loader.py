@@ -9,14 +9,16 @@ import numpy as np
 
 class VQA_Input_Data:
     def __init__(self, vqa_data: Dict):
-        self.image_name = (vqa_data.image_name,)
-        self.image_path = (vqa_data.image_path,)
-        self.question_id = (vqa_data.question_id,)
-        self.question_str = (vqa_data.question_str,)
-        self.question_tokens = vqa_data.question_tokens
-        self.all_answers = vqa_data.all_answers if "all_answers" in vqa_data else None
+        self.image_name = vqa_data["image_name"]
+        self.image_path = vqa_data["image_path"]
+        self.question_id = vqa_data["question_id"]
+        self.question_str = vqa_data["question_str"]
+        self.question_tokens = vqa_data["question_tokens"]
+        self.all_answers = (
+            vqa_data["all_answers"] if "all_answers" in vqa_data else None
+        )
         self.valid_answers = (
-            vqa_data.valid_answers if "valid_answers" in vqa_data else None
+            vqa_data["valid_answers"] if "valid_answers" in vqa_data else None
         )
 
 
@@ -26,6 +28,13 @@ class VQA_Data:
         self.question = question
         self.answer_label = answer_label
         self.answer_multi_choice = answer_multi_choice
+    def to_dict(self):
+        return {
+            "image": self.image,
+            "question": self.question,
+            "answer_label": self.answer_label,
+            "answer_multi_choice": self.answer_multi_choice
+        }
 
 
 class VQA_Dataset(data.Dataset):
@@ -68,11 +77,23 @@ class VQA_Dataset(data.Dataset):
 
         # preprocess answer
         answer_label = None
+        answer_multi_choice = None
         if self.load_ans:
             ans2idc = [self.answer_dict.word2idx(w) for w in vqa_data.valid_answers]
             ans2idx = np.random.choice(ans2idc)
             answer_label = ans2idx
-        return VQA_Data(image=image, question=quest_idx_list, answer_label=answer_label)
+
+            mul2idc = list([-1] * self.max_num_ans)       # padded with -1 (no meaning) not used in 'ans_vocab'
+            mul2idc[:len(ans2idc)] = ans2idc         # our model should not predict -1
+            answer_multi_choice = mul2idc  # for evaluation metric of 'multiple choice'
+        return VQA_Data(image=image, question=quest_idx_list, answer_label=answer_label, answer_multi_choice=answer_multi_choice).to_dict()
+
+    def get_vocab_size(self, vocab_type):
+        if vocab_type == "question":
+            return self.question_dict.vocab_size
+        if vocab_type == "answer":
+            return self.answer_dict.vocab_size
+        raise Exception("invalid params (vocab_type)")
 
 
 def get_vqa_data_loader(
@@ -99,7 +120,7 @@ def get_vqa_data_loader(
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
-    transform = transforms.Compose([normalize])
+    transform = transforms.Compose([transforms.ToTensor(), normalize])
 
     vqa_dataset = {
         "train": VQA_Dataset(
