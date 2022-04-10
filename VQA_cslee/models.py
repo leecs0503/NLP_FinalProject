@@ -29,9 +29,7 @@ class ImgEncoder(Model):
             raise Exception("Unexpected Model Name")
         pass
 
-    def forward(self, **kwargs):
-        image = kwargs["image"]
-
+    def forward(self, image):
         with torch.no_grad():
             image_feature = self.model(image)
         image_feature = self.fc(image_feature)
@@ -52,9 +50,7 @@ class QstEncoder(Model):
         self.lstm = nn.LSTM(word_embed_size, hidden_size, num_layers)
         self.fc = nn.Linear(2 * num_layers * hidden_size, embed_size)
 
-    def forward(self, **kwargs):
-        question = kwargs["question"]
-
+    def forward(self, question):
         qst_vec = self.word2vec(
             question
         )  # [batch_size, max_qst_length=30, word_embed_size=300]
@@ -89,9 +85,10 @@ class VQAModel(Model):
         word_embed_size,
         num_layers,
         hidden_size,
+        image_model_name="vgg19",
     ):
         super().__init__()
-        self.img_encoder = ImgEncoder(embed_size)
+        self.img_encoder = ImgEncoder(image_model_name, embed_size)
         self.qst_encoder = QstEncoder(
             qst_vocab_size, word_embed_size, embed_size, num_layers, hidden_size
         )
@@ -100,10 +97,7 @@ class VQAModel(Model):
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
 
-    def forward(self, **kwargs):
-        image = kwargs["image"]
-        question = kwargs["question"]
-
+    def forward(self, image, question):
         img_feature = self.img_encoder(image)  # [batch_size, embed_size]
         qst_feature = self.qst_encoder(question)  # [batch_size, embed_size]
 
