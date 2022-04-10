@@ -56,6 +56,7 @@ class VqaModel(nn.Module):
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
 
+    def forward(self, img, qst):
         img_feature = self.img_encoder(img)                     
         qst_feature = self.qst_encoder(qst)                     
         combined_feature = torch.mul(img_feature, qst_feature)  

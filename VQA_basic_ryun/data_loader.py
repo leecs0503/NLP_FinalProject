@@ -40,7 +40,7 @@ class VqaDataset(data.Dataset):
             ans2idc = [ans_vocab.word2idx(w) for w in vqa[idx]['valid_answers']]
             ans2idx = np.random.choice(ans2idc)
             sample['answer_label'] = ans2idx        
-
+            
             mul2idc = list([-1] * max_num_ans)      
             mul2idc[:len(ans2idc)] = ans2idc         
             sample['answer_multi_choice'] = mul2idc 

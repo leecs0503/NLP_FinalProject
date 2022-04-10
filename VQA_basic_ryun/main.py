@@ -3,10 +3,10 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
+import torch.optim as optim # 최적화 알고리즘
+from torch.optim import lr_scheduler # learning rate를 조절하는 scheduler
 from data_loader import get_loader
-from models import VqaModel
+from model import VqaModel
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -44,7 +44,8 @@ def main(args):
         + list(model.fc1.parameters()) \
         + list(model.fc2.parameters())
 
-    optimizer = optim.Adam(params, lr=args.learning_rate)
+    optimizer = optim.Adam(params, lr=args.learning_rate)   # Adam optimizer 이용
+    # 가장 흔히 사용되는 learning rate scheduler로 일정한 step마다 learning rate에 지정한 gamma를 곱해주어 learning rate를 감소시킨다.
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     for epoch in range(args.num_epochs):
@@ -52,7 +53,7 @@ def main(args):
         for phase in ['train', 'valid']:
 
             running_loss = 0.0
-            running_corr_exp1 = 0
+            running_corr_exp1 = 0   # 예측이 correct한 것들 저장하기 위함
             running_corr_exp2 = 0
             batch_step_size = len(data_loader[phase].dataset) / args.batch_size
 
@@ -69,21 +70,28 @@ def main(args):
                 label = batch_sample['answer_label'].to(device)
                 multi_choice = batch_sample['answer_multi_choice']  
 
+                # pytorch에서는 gradient가 누적되는 특징이 있기 때문에 반드시 한번의 학습이 완료될 때마다 gradient를 0로 만들고 시작해야 한다.
                 optimizer.zero_grad()
 
-                with torch.set_grad_enabled(phase == 'train'):
+                with torch.set_grad_enabled(phase == 'train'):  # train 모드일 때만  gradient 계산이 이뤄지도록 함
 
                     output = model(image, question)    
-                    _, pred_exp1 = torch.max(output, 1) # 최대 확률을 갖는 값 선택
-                    _, pred_exp2 = torch.max(output, 1)  
-                    loss = criterion(output, label)
+                    # 최대 확률을 갖는 값 선택
+                    _, pred_exp1 = torch.max(output, 1) # exp1은 <unk>를 answer로 포함했을 경우
+                    _, pred_exp2 = torch.max(output, 1) # exp2은 <unk>를 answer로 포함하지 않았을 경우
+                    loss = criterion(output, label) # cross-entropy-loss 사용
 
                     if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+                        loss.backward() # gradient 계산
+                        optimizer.step() # gradient descent를 이용한 최적화
 
-                pred_exp2[pred_exp2 == ans_unk_idx] = -9999
-                running_loss += loss.item()
+                # <unk> : unknown token, 출연 빈도가 낮은 토큰은 모두 <unk>로 대체.
+                # Evaluation metric of 'multiple choice'
+                # Exp1: our model prediction to '<unk>' is accepted as the answer.
+                # Exp2: our model prediction to '<unk>' is NOT accepted as the answer.
+
+                pred_exp2[pred_exp2 == ans_unk_idx] = -9999 # <unk>를 answer로 사용하지 않을려고 아예 -9999를 넣어버림
+                running_loss += loss.item() # 계산된 loss가 있을 때 loss의 scaler 값을 가져올 수 있음.
                 running_corr_exp1 += torch.stack([(ans == pred_exp1.cpu()) for ans in multi_choice]).any(dim=0).sum()
                 running_corr_exp2 += torch.stack([(ans == pred_exp2.cpu()) for ans in multi_choice]).any(dim=0).sum()
 
@@ -98,20 +106,22 @@ def main(args):
             print('| {} SET | Epoch [{:02d}/{:02d}], Loss: {:.4f}, Acc(Exp1): {:.4f}, Acc(Exp2): {:.4f} \n'
                   .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_acc_exp1, epoch_acc_exp2))
 
+            # train log 기록
             with open(os.path.join(args.log_dir, '{}-log-epoch-{:02}.txt')
                       .format(phase, epoch+1), 'w') as f:
                 f.write(str(epoch+1) + '\t'
                         + str(epoch_loss) + '\t'
                         + str(epoch_acc_exp1.item()) + '\t'
                         + str(epoch_acc_exp2.item()))
-
+        
+        # model save 
         if (epoch+1) % args.save_step == 0:
             torch.save({'epoch': epoch+1, 'state_dict': model.state_dict()},
                        os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch+1)))
 
 
 
-
+# 각종 parameters 값들을 불러오기 위한 argparse
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
