@@ -1,7 +1,7 @@
 import re
 
 
-SENTENCE_SPLIT_REGEX = re.compile(r'(\W+)')
+SENTENCE_SPLIT_REGEX = re.compile(r"(\W+)")
 
 
 def tokenize(sentence):
@@ -22,7 +22,9 @@ class VocabDict:
         self.word_list = load_str_list(vocab_file)
         self.word2idx_dict = {w: n_w for n_w, w in enumerate(self.word_list)}
         self.vocab_size = len(self.word_list)
-        self.unk2idx = self.word2idx_dict['<unk>'] if '<unk>' in self.word2idx_dict else None
+        self.unk2idx = (
+            self.word2idx_dict["<unk>"] if "<unk>" in self.word2idx_dict else None
+        )
 
     def idx2word(self, n_w):
 
@@ -34,7 +36,10 @@ class VocabDict:
         elif self.unk2idx is not None:
             return self.unk2idx
         else:
-            raise ValueError('word %s not in dictionary (while dictionary does not contain <unk>)' % w)
+            raise ValueError(
+                "word %s not in dictionary (while dictionary does not contain <unk>)"
+                % w
+            )
 
     def tokenize_and_index(self, sentence):
         inds = [self.word2idx(w) for w in tokenize(sentence)]
