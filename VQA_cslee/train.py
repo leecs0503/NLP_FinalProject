@@ -235,8 +235,8 @@ if __name__ == "__main__":
     # data_loader setting
     parser.add_argument("--max_qst_length", type=int, default=30)
     parser.add_argument("--max_num_ans", type=int, default=10)
-    parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--batch_size", type=int, default=512)
+    parser.add_argument("--num_workers", type=int, default=8)
 
     # model setting
     parser.add_argument(

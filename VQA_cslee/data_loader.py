@@ -77,8 +77,8 @@ class VQA_Dataset(data.Dataset):
         ]
 
         # preprocess answer
-        answer_label = None
-        answer_multi_choice = None
+        answer_label = -1
+        answer_multi_choice = -1
         if self.load_ans:
             ans2idc = [self.answer_dict.word2idx(w) for w in vqa_data.valid_answers]
             ans2idx = np.random.choice(ans2idc)
