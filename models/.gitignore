@@ -2,4 +2,6 @@
 /testsets/*
 /logs/*
 /models/*
+/runs/*
+/.vscode/*
 temp.py
