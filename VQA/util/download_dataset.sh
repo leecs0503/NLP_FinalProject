@@ -70,4 +70,3 @@ unzip $IMAGES_DIR/test2015.zip -d $IMAGES_DIR
 
 unzip $Complementary_DIR/v2_Complementary_Pairs_Train_mscoco.zip -d $Complementary_DIR
 unzip $Complementary_DIR/v2_Complementary_Pairs_Val_mscoco.zip -d $Complementary_DIR
-
