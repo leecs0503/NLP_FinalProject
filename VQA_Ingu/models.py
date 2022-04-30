@@ -7,8 +7,11 @@ class ImageModel(nn.Module):
     def __init__(self, embed_size):
         super(ImageModel, self).__init__()
         model = models.resnet101(pretrained=True)
-        in_features = model.fc.in_features
-        self.model = nn.Sequential(*(list(model.children())[:-1]))
+        in_features = model.fc.out_features
+        # in_features = model.classifier[-1].in_features
+        # model.classifier = nn.Sequential(*(list(model.classifier.children())[:-1]))
+        # model = nn.Sequential(*(list(model.children())[:-1]))
+        self.model = model
         self.fc = nn.Linear(in_features, embed_size)
 
 
@@ -17,7 +20,7 @@ class ImageModel(nn.Module):
             image_feature = self.model(image)
         image_feature = image_feature.squeeze()
         image_feature = self.fc(image_feature)
-        norm = torch.linalg.vector_norm(image_feature, dim=1, keepdim=True).detach()
+        norm = torch.linalg.vector_norm(image_feature, ord=2, dim=1, keepdim=True).detach()
         image_feature = image_feature.div(norm)
         return image_feature
 
@@ -62,7 +65,7 @@ class VQAModel(nn.Module):
             num_layers,
             hidden_layer_size
         )
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
         self.tanh = nn.Tanh()
         self.dropout = nn.Dropout(0.5)
         self.fc1 = nn.Linear(embed_size, answer_vocabulary_size)

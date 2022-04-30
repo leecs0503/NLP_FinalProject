@@ -75,23 +75,30 @@ def main(args):
                     _, pred_exp = torch.max(output, 1)
                     loss = criterion(output, label)
 
-                    loss.backward()
-                    optimizer.step()
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
 
                 running_loss += loss.item()
                 running_corr_exp += torch.stack([(ans == pred_exp.cpu()) for ans in multi_choice]).any(dim=0).sum()
 
                 # Print the average loss in a mini - batch.
-                if batch_idx % 100 == 0:
+                if batch_idx % 10 == 0:
                     print('| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}'
                         .format(phase.upper(), epoch + 1, args.num_epochs, batch_idx, int(batch_step_size), loss.item()))
 
-                if phase == 'train':
-                    scheduler.step()
+            if phase == 'train':
+                scheduler.step()
 
-            if (epoch + 1) % args.save_step == 0:
-                torch.save({'epoch': epoch + 1, 'state_dict' : model.state_dict()},
-                    os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch + 1)))
+            epoch_loss = running_loss / batch_step_size
+            epoch_acc_exp = running_corr_exp.double() / len(data_loader[phase].dataset)
+
+            print('| {} SET | Epoch [{:02d}/{:02d}], Loss: {:.4f}, Acc: {:.4f}\n'
+                  .format(phase.upper(), epoch+1, args.num_epochs, epoch_loss, epoch_acc_exp))
+
+        if (epoch + 1) % args.save_step == 0:
+            torch.save({'epoch': epoch + 1, 'state_dict' : model.state_dict()},
+                os.path.join(args.model_dir, 'model-epoch-{:02d}.ckpt'.format(epoch + 1)))
 
 
 
