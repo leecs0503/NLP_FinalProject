@@ -29,18 +29,17 @@ class VocabDict:
             self.word2idx_dict["<unk>"] if "<unk>" in self.word2idx_dict else None
         )
 
-    def idx2word(self, n_w: int) -> str:
-        return self.word_list[n_w]
+    def idx2word(self, index: int) -> str:
+        return self.word_list[index]
 
-    def word2idx(self, w: str) -> int:
-        if w in self.word2idx_dict:
-            return self.word2idx_dict[w]
+    def word2idx(self, word: str) -> int:
+        if word in self.word2idx_dict:
+            return self.word2idx_dict[word]
         elif self.unk2idx is not None:
             return self.unk2idx
         else:
             raise ValueError(
-                "word %s not in dictionary (while dictionary does not contain <unk>)"
-                % w
+                f"{word} %s not in dictionary (while dictionary does not contain <unk>)"
             )
 
     def tokenize_and_index(self, sentence: str) -> List[int]:

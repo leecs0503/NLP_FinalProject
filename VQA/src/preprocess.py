@@ -8,7 +8,7 @@ from utils import image_preprocess
 from utils import create_input
 
 
-def main(args):
+def preprocess(args):
     print("1. Preprocessing images...")
 
     image_input_dir = os.path.join(args.input_dir, "Images")
@@ -74,7 +74,7 @@ def main(args):
     print("Preprocessing Done.")
 
 
-if __name__ == "__main__":
+def get_argument() -> argparse.Namespace():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -117,6 +117,13 @@ if __name__ == "__main__":
         "--skip_text", type=bool, default=False, help="skip text preprocess"
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    main(args)
+
+def main():
+    args = get_argument()
+    preprocess(args)
+
+
+if __name__ == "__main__":
+    main()
