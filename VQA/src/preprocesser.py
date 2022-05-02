@@ -3,9 +3,9 @@ import argparse
 import numpy as np
 import random
 from utils import text_helper
-from utils import text_preprocess
-from utils import image_preprocess
-from utils import create_input
+from preprocess import text_preprocess
+from preprocess import image_preprocess
+from preprocess import create_input
 
 
 def preprocess(args):
