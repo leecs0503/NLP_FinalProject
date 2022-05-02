@@ -5,3 +5,4 @@
 /runs/*
 /.vscode/*
 temp.py
+.pytest_cache
