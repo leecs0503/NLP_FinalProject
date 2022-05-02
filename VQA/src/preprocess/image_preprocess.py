@@ -1,8 +1,9 @@
 import os
+from typing import List
 from PIL import Image
 
 
-def resize_images(input_dir: str, output_dir: str, size: int):
+def resize_images(input_dir: str, output_dir: str, size: List[int]):
     assert os.path.isdir(input_dir)
     for dir in os.scandir(input_dir):
         if not dir.is_dir():
