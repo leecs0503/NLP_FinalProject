@@ -35,7 +35,6 @@ def make_vocab_answers(input_dir: str, n_answers: int, output_dir: str):
         _, extension = os.path.splitext(input_path)
         if extension != ".json":
             continue
-        print(input_path)
         with open(input_path) as f:
             annotations = json.load(f)["annotations"]
         for annotation in annotations:
