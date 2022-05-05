@@ -8,16 +8,17 @@ from typing import Literal
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-class VQA_Trainer():
-    """
-    """
+
+class VQA_Trainer:
+    """ """
+
     def __init__(
         self,
         device: torch.device,
         model: Model,
         data_loader: VQA_DataLoader,
         model_path: str,
-        tensorboard_path: str = 'runs/',
+        tensorboard_path: str = "runs/",
     ):
         # todo: device를 context로
         self.device = device
@@ -30,20 +31,26 @@ class VQA_Trainer():
         self,
         start_epochs: int,
     ):
-        load_path = os.path.join(self.model_path, f"{self.model.get_name()}-epoch-{start_epochs:02}.ckpt")
+        load_path = os.path.join(
+            self.model_path, f"{self.model.get_name()}-epoch-{start_epochs:02}.ckpt"
+        )
         self.model.load_state_dict(torch.load(load_path)["state_dict"])
 
     def save_model(
         self,
         epoch: int,
     ):
-        save_path = os.path.join(self.model_path, f"{self.model.get_name()}-epoch-{epoch:02}.ckpt")
-        torch.save({"epoch": epoch + 1, "state_dict": self.model.state_dict()}, save_path)
+        save_path = os.path.join(
+            self.model_path, f"{self.model.get_name()}-epoch-{epoch:02}.ckpt"
+        )
+        torch.save(
+            {"epoch": epoch + 1, "state_dict": self.model.state_dict()}, save_path
+        )
 
     def log_batch(
         self,
         loss: float,
-        phase: Literal['train', 'valid'],
+        phase: Literal["train", "valid"],
         num_epochs,
         epoch: int,
         batch_idx: int,
@@ -59,12 +66,12 @@ class VQA_Trainer():
                 loss.item(),
             )
         )
-    
+
     def log_step(
         self,
         epoch_loss: float,
         epoch_acc_exp: float,
-        phase: Literal['train', 'valid'],
+        phase: Literal["train", "valid"],
         epoch: int,
         num_epochs: int,
     ):
@@ -85,7 +92,7 @@ class VQA_Trainer():
     ):
         for phase in self.data_loader:  # equal to: for phase in ['train', 'valid']:
             running_loss = 0.0
-            running_corr_exp= 0
+            running_corr_exp = 0
 
             if phase == "train":
                 scheduler.step()
@@ -104,14 +111,16 @@ class VQA_Trainer():
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == "train"):
-                    output = self.model(image, question)  # [batch_size, ans_vocab_size=1000]
+                    output = self.model(
+                        image, question
+                    )  # [batch_size, ans_vocab_size=1000]
                     _, pred_exp = torch.max(output, 1)  # [batch_size]
                     loss = criterion(output, label)
 
                     if phase == "train":
                         loss.backward()
                         optimizer.step()
-                
+
                 # pred_exp[pred_exp == ans_unk_idx] = -9999
                 running_loss += loss.item()
                 running_corr_exp += (
@@ -120,11 +129,11 @@ class VQA_Trainer():
                     .sum()
                 )
                 self.log_batch(
-                        loss=loss,
-                        phase=phase,
-                        num_epochs=num_epochs,
-                        epoch=epoch,
-                        batch_idx=batch_idx
+                    loss=loss,
+                    phase=phase,
+                    num_epochs=num_epochs,
+                    epoch=epoch,
+                    batch_idx=batch_idx,
                 )
             # Print the average loss and accuracy in an epoch.
             epoch_loss = running_loss / self.data_loader[phase].batch_step_size
@@ -139,16 +148,15 @@ class VQA_Trainer():
                 num_epochs=num_epochs,
             )
 
-
     def run(
-            self,
-            learning_rate: float,
-            step_size: int,
-            gamma: float,
-            save_step: int = 1,
-            start_epochs: int = 0,
-            num_epochs: int = 30,
-            batch_size: int = 512,
+        self,
+        learning_rate: float,
+        step_size: int,
+        gamma: float,
+        save_step: int = 1,
+        start_epochs: int = 0,
+        num_epochs: int = 30,
+        batch_size: int = 512,
     ):
         params = self.model.get_params()
 
@@ -166,7 +174,7 @@ class VQA_Trainer():
                 batch_size=batch_size,
                 criterion=criterion,
                 optimizer=optimizer,
-                scheduler=scheduler
+                scheduler=scheduler,
             )
             if (epoch + 1) % save_step == 0:
                 self.save_model(epoch)
