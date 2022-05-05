@@ -1,13 +1,5 @@
 import os
-import sys
 from PIL import Image
-
-sys.path.append(
-    os.path.dirname(
-        os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-    )
-)
-
 from src.preprocess import image_preprocess
 
 
