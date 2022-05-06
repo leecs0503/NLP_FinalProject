@@ -1,0 +1,7 @@
+<pad>
+<unk>
+a
+b
+ab
+c
+d
