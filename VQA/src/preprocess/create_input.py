@@ -13,7 +13,7 @@ def vqa_processing(
     image_dir: str,
     annotation_file: str,
     question_file: str,
-    valid_answer_set: str,
+    valid_answer_set: set(str),
     image_set: str,
 ):
     if image_set in ["train2014", "val2014"]:
