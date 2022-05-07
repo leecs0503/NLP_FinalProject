@@ -123,9 +123,16 @@ class VQA_Trainer:
 
                 # pred_exp[pred_exp == ans_unk_idx] = -9999
                 running_loss += loss.item()
+                # running_corr_exp += (
+                #     torch.stack([(ans == pred_exp.cpu()) for ans in multi_choice])
+                #     .any(dim=0)
+                #     .sum()
+                # )
                 running_corr_exp += (
-                    torch.stack([(ans == pred_exp.cpu()) for ans in multi_choice])
-                    .any(dim=0)
+                    torch.stack([ans == pred_exp.cpu() for ans in multi_choice])
+                    .sum(dim=0)
+                    .div(3)
+                    .minimum(torch.ones(self.data_loader[phase].batch_size))
                     .sum()
                 )
                 self.log_batch(
