@@ -56,7 +56,7 @@ class TextChannel(nn.Module):
         self.lstm = nn.LSTM(
             input_size=word_embed_size, hidden_size=hidden_size, num_layers=num_layers
         )
-        self.fc = nn.Linear(2 * num_layers * word_embed_size, embed_size)
+        self.fc = nn.Linear(2 * num_layers * hidden_size, embed_size)
 
     # fmt: off
     def forward(self, question: torch.Tensor):
@@ -70,10 +70,9 @@ class TextChannel(nn.Module):
         embeddings = torch.tanh(embeddings)
         embeddings = embeddings.transpose(0, 1)      # [max_qst_len, batch_size, word_embed_size]
         _, (hidden, cell) = self.lstm(embeddings)    # [num_layer, batch_size, word_embed_size]
-        qst_features = torch.cat((hidden, cell), 2)  # [num_layer, batch_size, 2*word_embed_size]
-        qst_features = qst_features.transpose(0, 1)  # [batch_size, num_layer, 2*word_embed_size]
-        qst_features = qst_features.reshape(qst_features.size()[0], -1)  # [batch_size, 2*num_layer*word_embed_size]
-
+        qst_features = torch.cat((hidden, cell), 2)  # [num_layer, batch_size, 2*hidden_size]
+        qst_features = qst_features.transpose(0, 1)  # [batch_size, num_layer, 2*hidden_size]
+        qst_features = qst_features.reshape(qst_features.size()[0], -1)  # [batch_size, 2*num_layer*hidden_size]
         qst_features = torch.tanh(qst_features)
         qst_features = self.fc(qst_features)  # [batch_size, embed_size]
 
