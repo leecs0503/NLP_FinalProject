@@ -23,7 +23,7 @@ class VQA_Raw_Data:
         self.all_answers: Optional[List[str]] = (
             vqa_data["all_answers"] if "all_answers" in vqa_data else None
         )
-        self.valid_answers: Optional[str] = (
+        self.valid_answers: Optional[List[str]] = (
             vqa_data["valid_answers"] if "valid_answers" in vqa_data else None
         )
 
@@ -58,7 +58,7 @@ class VQA_Dataset(torch.utils.data.Dataset):
         max_num_ans: int,
         question_dict: VocabDict,
         answer_dict: Optional[VocabDict] = None,
-        transform=None,
+        transform: Optional[transforms.Compose] = None,
     ):
         """VQA의 Dataset"""
         self.dataset = dataset
@@ -107,7 +107,7 @@ class VQA_Dataset(torch.utils.data.Dataset):
             answer_multi_choice=answer_multi_choice,
         ).to_dict()
 
-    def get_vocab_size(self, vocab_type):
+    def get_vocab_size(self, vocab_type: str):
         if vocab_type == "question":
             return self.question_dict.vocab_size
         if vocab_type == "answer":
