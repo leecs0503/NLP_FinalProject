@@ -1,5 +1,5 @@
-from model import Model
-from dataloader import VQA_DataLoader
+from .model import Model
+from .dataloader import VQA_DataLoader
 import torch
 import os
 import torch.nn as nn
@@ -18,7 +18,7 @@ def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor):
         torch.stack([ans == pred_exp.cpu() for ans in answer])
         .sum(dim=0)
         .div(3)
-        .minimum(torch.ones(answer.shape[0]))
+        .minimum(torch.ones(answer.shape[1]))
         .sum()
     )
 
