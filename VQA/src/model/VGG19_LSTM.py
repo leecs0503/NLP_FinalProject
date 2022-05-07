@@ -36,7 +36,7 @@ class ImageChannel(nn.Module):
 class TextChannel(nn.Module):
     def __init__(
         self,
-        ques_vocab_size: int,
+        qst_vocab_size: int,
         word_embed_size: int = 300,
         hidden_size: int = 512,
         num_layers: int = 2,
@@ -44,14 +44,14 @@ class TextChannel(nn.Module):
     ):
         """
         Args:
-            ques_vocab_size(int): question vocab의 크기
+            qst_vocab_size(int): qustion vocab의 크기
             word_embed_size(int): word embedding할 크기 (default 300)
             hidden_size(int): LSTM의 hidden layer 크기 (default 512)
             num_layers(int): stack된 LSTM의 개수 (default 2)
         """
         super().__init__()
         self.embedding_layer: nn.Embedding = nn.Embedding(
-            num_embeddings=ques_vocab_size, embedding_dim=word_embed_size
+            num_embeddings=qst_vocab_size, embedding_dim=word_embed_size
         )
         self.lstm = nn.LSTM(
             input_size=word_embed_size, hidden_size=hidden_size, num_layers=num_layers
@@ -81,9 +81,58 @@ class TextChannel(nn.Module):
 
 
 class LSTM_VQA(nn.Module):
-    def __init__(self):
+    def __init__(
+        self,
+        embed_size: int,
+        qst_vocab_size: int,
+        word_embed_size: int,
+        num_layers: int,
+        hidden_size: int,
+        ans_vocab_size: int,
+        dropout_rate: float,
+    ):
+        """
+        Args:
+            embed_size(int): 이미지 체널과 텍스트 체널에 ,
+            qst_vocab_size(int): qustion vocab의 크기
+            word_embed_size(int): word embedding할 크기 (default 300)
+            num_layers(int): stack된 LSTM의 개수 (default 2)
+            hidden_size(int): LSTM의 hidden layer 크기 (default 512)
+            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기),
+            dropout_rate(int): dropout시 적용할 하이퍼 파라메터,
+        Return:
+            torch.Tensor (shape=[batch_size, ans_vocab_size])
+        """
         super().__init__()
-        pass
+        self.image_channel = ImageChannel(embed_size=embed_size)
+        self.text_channel = TextChannel(
+            qst_vocab_size=qst_vocab_size,
+            word_embed_size=word_embed_size,
+            num_layers=num_layers,
+            hidden_size=hidden_size,
+            embed_size=embed_size,
+        )
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc = nn.Linear(embed_size, ans_vocab_size)
 
-    def forward(self):
-        pass
+    # fmt: off
+    def forward(
+        self,
+        image: torch.Tensor,
+        question: torch.Tensor,
+    ):
+        """
+        Args:
+            image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
+            question(torch.Tensor): batch 크기만큼 들어있는 질의 텐서 (shape=[batch_size, max_qst_len])
+        Return:
+            torch.Tensor (shape = [batch_size, ans_vocab_size])
+        """
+        img_feature = self.image_channel(image)                      # [batch_size, embed_size]
+        qst_feature = self.text_channel(question)                   # [batch_size, embed_size]
+        combined_feature = torch.mul(img_feature, qst_feature)     # [batch_size, embed_size]
+        combined_feature = self.fc(combined_feature)               # [batch_size, ans_vocab_size]
+        combined_feature = torch.softmax(combined_feature, dim=1)  # [batch_size, ans_vocab_size]
+        combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
+        return combined_feature
+    # fmt: on
