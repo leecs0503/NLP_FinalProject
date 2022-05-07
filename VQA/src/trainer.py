@@ -9,11 +9,27 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 
-def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor):
+def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+    """multi-choice방식에서 accuracy를 계산하는 메소드
+
+    Args:
+        pred_exp: 모델이 예측한 결과 (batch_size)
+        answer: 실제 결과 (num_answer, batch_size)
+    Returns:
+        torch.Tensor: 계산된 acc점수의 합
+    """
     return torch.stack([(ans == pred_exp.cpu()) for ans in answer]).any(dim=0).sum()
 
 
-def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor):
+def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+    """open-ended방식에서 accuracy를 계산하는 메소드
+
+    Args:
+        pred_exp: 모델이 예측한 결과 (batch_size)
+        answer: 실제 결과 (num_answer, batch_size)
+    Returns:
+        torch.Tensor: 계산된 acc점수의 합
+    """
     return (
         torch.stack([ans == pred_exp.cpu() for ans in answer])
         .sum(dim=0)
