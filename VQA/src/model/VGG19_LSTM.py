@@ -11,7 +11,7 @@ class ImageChannel(nn.Module):
         """
         super().__init__()
         model = models.vgg19(pretrained=True)
-        in_features = models.classifier[-1].in_feature
+        in_features = model.classifier[-1].in_features
         model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
         self.model = model
         self.fc = nn.Linear(in_features, embed_size)
