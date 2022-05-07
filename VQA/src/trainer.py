@@ -9,6 +9,20 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 
+def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor):
+    return torch.stack([(ans == pred_exp.cpu()) for ans in answer]).any(dim=0).sum()
+
+
+def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor):
+    return (
+        torch.stack([ans == pred_exp.cpu() for ans in answer])
+        .sum(dim=0)
+        .div(3)
+        .minimum(torch.ones(answer.shape[0]))
+        .sum()
+    )
+
+
 class VQA_Trainer:
     """ """
 
@@ -123,18 +137,7 @@ class VQA_Trainer:
 
                 # pred_exp[pred_exp == ans_unk_idx] = -9999
                 running_loss += loss.item()
-                # running_corr_exp += (
-                #     torch.stack([(ans == pred_exp.cpu()) for ans in multi_choice])
-                #     .any(dim=0)
-                #     .sum()
-                # )
-                running_corr_exp += (
-                    torch.stack([ans == pred_exp.cpu() for ans in multi_choice])
-                    .sum(dim=0)
-                    .div(3)
-                    .minimum(torch.ones(self.data_loader[phase].batch_size))
-                    .sum()
-                )
+                running_corr_exp += acc_open_ended(pred_exp, multi_choice)
                 self.log_batch(
                     loss=loss,
                     phase=phase,
