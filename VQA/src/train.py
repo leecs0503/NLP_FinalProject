@@ -75,7 +75,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="datasets",
+        default=os.path.join("..","datasets"),
         help="directory for input",
     )
 
@@ -213,7 +213,7 @@ def main():
             hidden_size=args.hidden_layer_size,
             ans_vocab_size=ans_vocab_size,
             dropout_rate=args.dropout_rate,
-        )
+        ).to(device)
     else:
         assert False
     train_model(
