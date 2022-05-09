@@ -1,4 +1,4 @@
-from .model import Model
+from .model.model import Model
 from .dataloader import VQA_DataLoader
 import torch
 import os
