@@ -142,3 +142,11 @@ class LSTM_VQA(nn.Module):
         combined_feature = torch.softmax(combined_feature, dim=1)  # [batch_size, ans_vocab_size]
         return combined_feature
     # fmt: on
+
+    def get_params(self):
+        return (
+            list(self.image_channel.fc.parameters())
+            + list(self.text_channel.parameters())
+            + list(self.fc1.parameters())
+            + list(self.fc2.parameters())
+        )
