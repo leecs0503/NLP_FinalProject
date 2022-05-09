@@ -1,6 +1,6 @@
 from typing import TypedDict, List, Dict, Optional
 import torch.utils.data
-from .utils.vocab_dict import VocabDict
+from src.utils.vocab_dict import VocabDict
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
