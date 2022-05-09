@@ -114,7 +114,8 @@ class LSTM_VQA(nn.Module):
             embed_size=embed_size,
         )
         self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(embed_size, ans_vocab_size)
+        self.fc1 = nn.Linear(embed_size, ans_vocab_size)
+        self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
 
     # fmt: off
     def forward(
@@ -129,11 +130,15 @@ class LSTM_VQA(nn.Module):
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
-        img_feature = self.image_channel(image)                      # [batch_size, embed_size]
-        qst_feature = self.text_channel(question)                   # [batch_size, embed_size]
+        img_feature = self.image_channel(image)                    # [batch_size, embed_size]
+        qst_feature = self.text_channel(question)                  # [batch_size, embed_size]
         combined_feature = torch.mul(img_feature, qst_feature)     # [batch_size, embed_size]
-        combined_feature = self.fc(combined_feature)               # [batch_size, ans_vocab_size]
-        combined_feature = torch.softmax(combined_feature, dim=1)  # [batch_size, ans_vocab_size]
+        combined_feature = self.fc1(combined_feature)              # [batch_size, ans_vocab_size]
         combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
+        combined_feature = torch.tanh(combined_feature)            # [batch_size, ans_vocab_size]
+        combined_feature = self.fc2(combined_feature)              # [batch_size, ans_vocab_size]
+        combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
+        combined_feature = torch.tanh(combined_feature)            # [batch_size, ans_vocab_size]
+        combined_feature = torch.softmax(combined_feature, dim=1)  # [batch_size, ans_vocab_size]
         return combined_feature
     # fmt: on
