@@ -89,6 +89,7 @@ class VQA_Trainer:
         batch_idx: int,
     ):
         self.writer.add_scalar(f"Step/Loss/{phase.upper()}-{epoch:02}", loss, batch_idx)
+        self.writer.flush()
         print(
             "| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}".format(
                 phase.upper(),
@@ -113,6 +114,7 @@ class VQA_Trainer:
     ):
         self.writer.add_scalar(f"Epoch/Loss/{phase.upper()}", epoch_loss, epoch)
         self.writer.add_scalar(f"Epoch/ACC/{phase.upper()}", epoch_acc_exp, epoch)
+        self.writer.flush()
         print(
             f"| {phase.upper()} SET | Epoch [{epoch + 1:02}/{num_epochs:02}], Loss: {epoch_loss:.4}, Acc(Exp): {epoch_acc_exp:.4}"
         )
@@ -168,7 +170,7 @@ class VQA_Trainer:
                     batch_idx=batch_idx,
                 )
             # Print the average loss and accuracy in an epoch.
-            epoch_loss = running_loss / self.data_loader[phase].batch_step_size
+            epoch_loss = running_loss / self.data_loader[phase].batch_size
             epoch_acc_exp = running_corr_exp.double() / len(
                 self.data_loader[phase].dataset
             )
