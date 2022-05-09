@@ -1,5 +1,6 @@
 from torch import nn
 import torchvision.models as models
+from torch import linalg as LA
 import torch
 
 
@@ -27,7 +28,7 @@ class ImageChannel(nn.Module):
             image_features = self.model(image)
         image_features = self.fc(image_features)  # (batch_size, embed_size)
 
-        l2_norm = image_features.norm(p=2, dim=1, keepdim=True)  # (batch_size)
+        l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         normalized = image_features.div(l2_norm)  # (batch_size, embed_size)
 
         return normalized
