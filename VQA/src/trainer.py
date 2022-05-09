@@ -1,5 +1,5 @@
-from .model.model import Model
-from .dataloader import VQA_DataLoader
+from src.model.model import Model
+from src.dataloader import VQA_DataLoader
 import torch
 import os
 import torch.nn as nn
@@ -7,9 +7,12 @@ import torch.optim as optim
 from typing import Literal
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
+from typing import List
 
 
-def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+def acc_multi_choice(
+    pred_exp: torch.Tensor, answer: List[torch.Tensor]
+) -> torch.Tensor:
     """multi-choice방식에서 accuracy를 계산하는 메소드
 
     Args:
@@ -21,7 +24,7 @@ def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tens
     return torch.stack([(ans == pred_exp.cpu()) for ans in answer]).any(dim=0).sum()
 
 
-def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+def acc_open_ended(pred_exp: torch.Tensor, answer: List[torch.Tensor]) -> torch.Tensor:
     """open-ended방식에서 accuracy를 계산하는 메소드
 
     Args:
@@ -34,7 +37,7 @@ def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor
         torch.stack([ans == pred_exp.cpu() for ans in answer])
         .sum(dim=0)
         .div(3)
-        .minimum(torch.ones(answer.shape[1]))
+        .minimum(torch.ones(answer[1].shape[0]))
         .sum()
     )
 
@@ -92,7 +95,10 @@ class VQA_Trainer:
                 epoch + 1,
                 num_epochs,
                 batch_idx,
-                self.data_loader[phase].batch_step_size,
+                int(
+                    len(self.data_loader[phase].dataset)
+                    / self.data_loader[phase].batch_size
+                ),
                 loss.item(),
             )
         )
@@ -182,7 +188,6 @@ class VQA_Trainer:
         save_step: int = 1,
         start_epochs: int = 0,
         num_epochs: int = 30,
-        batch_size: int = 512,
     ):
         params = self.model.get_params()
 
@@ -191,13 +196,12 @@ class VQA_Trainer:
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
 
         if start_epochs != 0:
-            self.load_model()
+            self.load_model(start_epochs)
 
         for epoch in range(start_epochs, num_epochs):
             self.step(
                 epoch=epoch,
                 num_epochs=num_epochs,
-                batch_size=batch_size,
                 criterion=criterion,
                 optimizer=optimizer,
                 scheduler=scheduler,
