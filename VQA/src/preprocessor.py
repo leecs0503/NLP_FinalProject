@@ -2,7 +2,7 @@ import os
 import argparse
 import numpy as np
 import random
-from utils import text_helper
+from utils import text_helper, vocab_dict
 from preprocess import text_preprocess
 from preprocess import image_preprocess
 from preprocess import create_input
@@ -44,7 +44,7 @@ def preprocess(args):
     )
 
     vocab_answer_file = os.path.join(args.output_dir, "vocab_answers.txt")
-    answer_dict = text_helper.VocabDict(vocab_answer_file)
+    answer_dict = vocab_dict.VocabDict(vocab_answer_file)
     valid_answer_set = set(answer_dict.word_list)
 
     train = create_input.vqa_processing(
