@@ -75,21 +75,21 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--input_dir",
         type=str,
-        default=os.path.join("..","datasets"),
+        default="./datasets",
         help="directory for input",
     )
 
     parser.add_argument(
         "--log_dir",
         type=str,
-        default="logs",
+        default="./logs",
         help="directory for logs",
     )
 
     parser.add_argument(
         "--model_dir",
         type=str,
-        default="models",
+        default="./models",
         help="directory for save/load model",
     )
 
