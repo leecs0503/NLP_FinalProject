@@ -1,0 +1,25 @@
+[flake8]
+exclude =
+    datasets
+    .pytest_cache
+ignore =
+    E121,
+    E126,
+    E127,
+    E128,
+    E203,
+    E241,
+    E261,
+    E265,
+    E303,
+    E402,
+    E741,
+    W291,
+    W391,
+    W503,
+    W504,
+    F403,
+    B007,
+    B950,
+
+max-line-length = 160
