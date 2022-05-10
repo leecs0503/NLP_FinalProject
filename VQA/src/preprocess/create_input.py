@@ -1,9 +1,10 @@
 import json
 import os
 import utils.text_helper as text_helper
+from typing import Set, List
 
 
-def extract_answers(q_answers: str, valid_answer_set: str):
+def extract_answers(q_answers: List[str], valid_answer_set):
     all_answers = [answer["answer"] for answer in q_answers]
     valid_answers = [answer for answer in all_answers if answer in valid_answer_set]
     return all_answers, valid_answers
@@ -13,7 +14,7 @@ def vqa_processing(
     image_dir: str,
     annotation_file: str,
     question_file: str,
-    valid_answer_set: set(str),
+    valid_answer_set,
     image_set: str,
 ):
     if image_set in ["train2014", "val2014"]:

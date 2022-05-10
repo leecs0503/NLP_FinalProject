@@ -133,12 +133,19 @@ class LSTM_VQA(nn.Module):
         img_feature = self.image_channel(image)                    # [batch_size, embed_size]
         qst_feature = self.text_channel(question)                  # [batch_size, embed_size]
         combined_feature = torch.mul(img_feature, qst_feature)     # [batch_size, embed_size]
+        combined_feature = torch.tanh(combined_feature)             # [batch_size, embed_size]
+        combined_feature = self.dropout(combined_feature)          # [batch_size, embed_size]
         combined_feature = self.fc1(combined_feature)              # [batch_size, ans_vocab_size]
+        combined_feature = torch.tanh(combined_feature)             # [batch_size, ans_vocab_size]
         combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
-        combined_feature = torch.tanh(combined_feature)            # [batch_size, ans_vocab_size]
         combined_feature = self.fc2(combined_feature)              # [batch_size, ans_vocab_size]
-        combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
-        combined_feature = torch.tanh(combined_feature)            # [batch_size, ans_vocab_size]
-        combined_feature = torch.softmax(combined_feature, dim=1)  # [batch_size, ans_vocab_size]
         return combined_feature
     # fmt: on
+
+    def get_params(self):
+        return (
+            list(self.image_channel.fc.parameters())
+            + list(self.text_channel.parameters())
+            + list(self.fc1.parameters())
+            + list(self.fc2.parameters())
+        )

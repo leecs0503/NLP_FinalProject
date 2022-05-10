@@ -28,3 +28,4 @@ torchvision==0.12.0
 typing_extensions==4.1.1
 urllib3==1.26.9
 virtualenv==20.14.0
+tensorboard==2.9.0

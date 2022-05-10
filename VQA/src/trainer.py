@@ -1,5 +1,7 @@
-from .model import Model
-from .dataloader import VQA_DataLoader
+from datetime import datetime
+import logging
+from src.model.model import Model
+from src.dataloader import VQA_DataLoader
 import torch
 import os
 import torch.nn as nn
@@ -7,9 +9,12 @@ import torch.optim as optim
 from typing import Literal
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
+from typing import List
 
 
-def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+def acc_multi_choice(
+    pred_exp: torch.Tensor, answer: List[torch.Tensor]
+) -> torch.Tensor:
     """multi-choice방식에서 accuracy를 계산하는 메소드
 
     Args:
@@ -21,7 +26,7 @@ def acc_multi_choice(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tens
     return torch.stack([(ans == pred_exp.cpu()) for ans in answer]).any(dim=0).sum()
 
 
-def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor:
+def acc_open_ended(pred_exp: torch.Tensor, answer: List[torch.Tensor]) -> torch.Tensor:
     """open-ended방식에서 accuracy를 계산하는 메소드
 
     Args:
@@ -34,7 +39,7 @@ def acc_open_ended(pred_exp: torch.Tensor, answer: torch.Tensor) -> torch.Tensor
         torch.stack([ans == pred_exp.cpu() for ans in answer])
         .sum(dim=0)
         .div(3)
-        .minimum(torch.ones(answer.shape[1]))
+        .minimum(torch.ones(answer[1].shape[0]))
         .sum()
     )
 
@@ -48,6 +53,7 @@ class VQA_Trainer:
         model: Model,
         data_loader: VQA_DataLoader,
         model_path: str,
+        log_path: str,
         tensorboard_path: str = "runs/",
     ):
         # todo: device를 context로
@@ -56,6 +62,17 @@ class VQA_Trainer:
         self.data_loader = data_loader
         self.model_path = model_path
         self.writer = SummaryWriter(tensorboard_path)
+        self.logger = logging.getLogger("VQA_Trainer logger")
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+
+        file_handler = logging.FileHandler(
+            os.path.join(log_path, str(datetime.now()) + ".log")
+        )
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
 
     def load_model(
         self,
@@ -86,16 +103,20 @@ class VQA_Trainer:
         batch_idx: int,
     ):
         self.writer.add_scalar(f"Step/Loss/{phase.upper()}-{epoch:02}", loss, batch_idx)
-        print(
-            "| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}".format(
-                phase.upper(),
-                epoch + 1,
-                num_epochs,
-                batch_idx,
-                self.data_loader[phase].batch_step_size,
-                loss.item(),
-            )
+        self.writer.flush()
+        msg = "| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}".format(
+            phase.upper(),
+            epoch + 1,
+            num_epochs,
+            batch_idx,
+            int(
+                len(self.data_loader[phase].dataset)
+                / self.data_loader[phase].batch_size
+            ),
+            loss.item(),
         )
+        print(msg)
+        self.logger.info(msg)
 
     def log_step(
         self,
@@ -107,9 +128,10 @@ class VQA_Trainer:
     ):
         self.writer.add_scalar(f"Epoch/Loss/{phase.upper()}", epoch_loss, epoch)
         self.writer.add_scalar(f"Epoch/ACC/{phase.upper()}", epoch_acc_exp, epoch)
-        print(
-            f"| {phase.upper()} SET | Epoch [{epoch + 1:02}/{num_epochs:02}], Loss: {epoch_loss:.4}, Acc(Exp): {epoch_acc_exp:.4}"
-        )
+        self.writer.flush()
+        msg = f"| {phase.upper()} SET | Epoch [{epoch + 1:02}/{num_epochs:02}], Loss: {epoch_loss:.4}, Acc(Exp): {epoch_acc_exp:.4}"
+        print(msg)
+        self.logger.info(msg)
         pass
 
     def step(
@@ -123,6 +145,7 @@ class VQA_Trainer:
         for phase in self.data_loader:  # equal to: for phase in ['train', 'valid']:
             running_loss = 0.0
             running_corr_exp = 0
+            batch_step_size = 0
 
             if phase == "train":
                 scheduler.step()
@@ -137,6 +160,8 @@ class VQA_Trainer:
                 question = batch_sample["question"].to(self.device)
                 label = batch_sample["answer_label"].to(self.device)
                 multi_choice = batch_sample["answer_multi_choice"]  # not tensor, list.
+
+                batch_step_size += 1
 
                 optimizer.zero_grad()
 
@@ -162,7 +187,7 @@ class VQA_Trainer:
                     batch_idx=batch_idx,
                 )
             # Print the average loss and accuracy in an epoch.
-            epoch_loss = running_loss / self.data_loader[phase].batch_step_size
+            epoch_loss = running_loss / batch_step_size
             epoch_acc_exp = running_corr_exp.double() / len(
                 self.data_loader[phase].dataset
             )
@@ -182,7 +207,6 @@ class VQA_Trainer:
         save_step: int = 1,
         start_epochs: int = 0,
         num_epochs: int = 30,
-        batch_size: int = 512,
     ):
         params = self.model.get_params()
 
@@ -191,13 +215,12 @@ class VQA_Trainer:
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
 
         if start_epochs != 0:
-            self.load_model()
+            self.load_model(start_epochs)
 
         for epoch in range(start_epochs, num_epochs):
             self.step(
                 epoch=epoch,
                 num_epochs=num_epochs,
-                batch_size=batch_size,
                 criterion=criterion,
                 optimizer=optimizer,
                 scheduler=scheduler,

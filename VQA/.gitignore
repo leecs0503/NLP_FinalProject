@@ -3,6 +3,8 @@
 /logs/*
 /models/*
 /runs/*
+/src/runs/*
 /.vscode/*
 temp.py
-.pytest_cache
+/.pytest_cache/*
+/tests/dataloader/datasets/train.npy
