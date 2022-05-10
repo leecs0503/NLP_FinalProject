@@ -15,7 +15,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_model(
-    input_dir: str,
     log_dir: str,
     model_dir: str,
     tensorboard_dir: str,
@@ -31,7 +30,6 @@ def train_model(
     """모델을 학습시키는 메소드
 
     Args:
-        input_dir: 전처리된 데이터가 있는 경로
         log_dir: log파일을 저장할 경로
         model_dir: 학습된 모델을 저장하거나 불러올 경로
         tensorboard_dir : 텐서보드 경로
@@ -54,6 +52,7 @@ def train_model(
         model=model,
         data_loader=data_loader,
         model_path=model_dir,
+        log_path=log_dir,
         tensorboard_path=tensorboard_dir,
     )
 
@@ -217,7 +216,6 @@ def main():
     else:
         assert False
     train_model(
-        input_dir=args.input_dir,
         log_dir=args.log_dir,
         model_dir=args.model_dir,
         tensorboard_dir=args.tensorboard_dir,
