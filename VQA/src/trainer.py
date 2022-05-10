@@ -131,6 +131,7 @@ class VQA_Trainer:
         for phase in self.data_loader:  # equal to: for phase in ['train', 'valid']:
             running_loss = 0.0
             running_corr_exp = 0
+            batch_step_size = 0
 
             if phase == "train":
                 scheduler.step()
@@ -145,6 +146,8 @@ class VQA_Trainer:
                 question = batch_sample["question"].to(self.device)
                 label = batch_sample["answer_label"].to(self.device)
                 multi_choice = batch_sample["answer_multi_choice"]  # not tensor, list.
+
+                batch_step_size += 1
 
                 optimizer.zero_grad()
 
@@ -170,7 +173,7 @@ class VQA_Trainer:
                     batch_idx=batch_idx,
                 )
             # Print the average loss and accuracy in an epoch.
-            epoch_loss = running_loss / self.data_loader[phase].batch_size
+            epoch_loss = running_loss / batch_step_size
             epoch_acc_exp = running_corr_exp.double() / len(
                 self.data_loader[phase].dataset
             )
