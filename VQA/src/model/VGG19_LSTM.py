@@ -113,7 +113,6 @@ class LSTM_VQA(nn.Module):
             hidden_size=hidden_size,
             embed_size=embed_size,
         )
-        self.softmax = nn.Softmax(dim=1)
         self.dropout = nn.Dropout(dropout_rate)
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
