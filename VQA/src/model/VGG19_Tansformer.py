@@ -146,23 +146,29 @@ class TextChannel(nn.Module):
 class Transformer_VQA(nn.Module):
     def __init__(
         self,
-        embed_size: int,
-        qst_vocab_size: int,
-        word_embed_size: int,
-        num_layers: int,
-        hidden_size: int,
         ans_vocab_size: int,
         dropout_rate: float,
+        qst_vocab_size: int,
+        pad_token: int,
+        embed_size: int = 1024,
+        hidden_size: int = 512,
+        num_head: int = 8,
+        dim_feedforward: int = 2048,
+        num_encode_layers: int = 6,
+        max_qst_length: int = 30,
     ):
         """
         Args:
-            embed_size(int): 이미지 체널과 텍스트 체널에 ,
-            qst_vocab_size(int): qustion vocab의 크기
-            word_embed_size(int): word embedding할 크기 (default 300)
-            num_layers(int): stack된 LSTM의 개수 (default 2)
-            hidden_size(int): LSTM의 hidden layer 크기 (default 512)
             ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기),
             dropout_rate(int): dropout시 적용할 하이퍼 파라메터,
+            qst_vocab_size(int): qustion vocab의 크기
+            pad_token(int): <pad>의 token 값
+            embed_size(int): 이미지 체널과 텍스트 체널에 embed 크기 (default: 1024)
+            hidden_size(int): transformer의 output tensor 크기 (default: 512)
+            num_head(int): transformer의 attention head 개수 (deafult: 8)
+            dim_feedforward(int): transformer의 feedforward의 은닉층의 차원 (default:2048)
+            num_encoder_layers(int): transformer encoder을 몇 층 쌓을 건지 (default: 6)
+            max_qst_length(int): 가장 긴 질문의 길이 (default:30)
         Return:
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
@@ -170,9 +176,12 @@ class Transformer_VQA(nn.Module):
         self.image_channel = ImageChannel(embed_size=embed_size)
         self.text_channel = TextChannel(
             qst_vocab_size=qst_vocab_size,
-            word_embed_size=word_embed_size,
-            num_layers=num_layers,
+            pad_token=pad_token,
             hidden_size=hidden_size,
+            num_head=num_head,
+            dim_feedforward=dim_feedforward,
+            num_encode_layers=num_encode_layers,
+            max_qst_length=max_qst_length,
             embed_size=embed_size,
         )
         self.dropout = nn.Dropout(dropout_rate)

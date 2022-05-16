@@ -69,16 +69,15 @@ def test_TextChannel():
 
 
 def test_Transformer_VQA():
-    return
     batch_size, embed_size, ans_vocab_size = 2, 10, 5
     model = Transformer_VQA(
-        embed_size=embed_size,
-        qst_vocab_size=10,
-        word_embed_size=20,
-        num_layers=2,
-        hidden_size=8,
         ans_vocab_size=ans_vocab_size,
         dropout_rate=0.5,
+        qst_vocab_size=10,
+        pad_token=0,
+        embed_size=embed_size,
+        hidden_size=8,
+        max_qst_length=6,
     ).to("cpu")
     model.eval()
     image = torch.zeros((batch_size, 3, 244, 244))
