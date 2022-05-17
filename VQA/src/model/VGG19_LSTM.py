@@ -116,7 +116,8 @@ class LSTM_VQA(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
-
+    def get_name(self):
+        return 'VGG19+LSTM'
     # fmt: off
     def forward(
         self,

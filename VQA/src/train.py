@@ -266,3 +266,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO: train.py의 인자 적절히 고치기

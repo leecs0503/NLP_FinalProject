@@ -8,6 +8,11 @@ from PIL import Image
 # batch_step_size = len(self.data_loader[phase].dataset) / batch_size
 
 
+# TODO: pretrained된 이름 기반으로 코드 아래로 작성하고 인자로 잘 빼기
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/bert-base-nli-mean-tokens', model_max_length=30)
+
 class VQA_DataLoader(TypedDict):
     train: torch.utils.data.DataLoader
     valid: torch.utils.data.DataLoader
@@ -33,11 +38,13 @@ class VQA_Input_Data:
         self,
         image,
         question,
+        question_token,
         answer_label=None,
         answer_multi_choice=None,
     ):
         self.image = image
         self.question = question
+        self.question_token = question_token
         self.answer_label = answer_label
         self.answer_multi_choice = answer_multi_choice
 
@@ -45,6 +52,7 @@ class VQA_Input_Data:
         return {
             "image": self.image,
             "question": self.question,
+            "question_token": self.question_token,
             "answer_label": self.answer_label,
             "answer_multi_choice": self.answer_multi_choice,
         }
@@ -87,6 +95,7 @@ class VQA_Dataset(torch.utils.data.Dataset):
         quest_idx_list[: len(vqa_data.question_tokens)] = [
             self.question_dict.word2idx(w) for w in vqa_data.question_tokens
         ]
+        question_token = tokenizer(vqa_data.question_str, padding='max_length', truncation=True, return_tensors='pt', max_length  = 30)
 
         # preprocess answer
         answer_label = -1
@@ -94,7 +103,6 @@ class VQA_Dataset(torch.utils.data.Dataset):
         if self.load_ans:
             ans2idc = [self.answer_dict.word2idx(w) for w in vqa_data.valid_answers]
             answer_label = np.random.choice(ans2idc)
-
             mul2idc = list(
                 [-1] * self.max_num_ans
             )  # padded with -1 (no meaning) not used in 'ans_vocab'
@@ -103,6 +111,7 @@ class VQA_Dataset(torch.utils.data.Dataset):
         return VQA_Input_Data(
             image=image,
             question=quest_idx_list,
+            question_token=question_token,
             answer_label=answer_label,
             answer_multi_choice=answer_multi_choice,
         ).to_dict()
@@ -147,6 +156,9 @@ def load_data_loader(
         shuffle=shuffle,
         num_workers=num_workers,
     )
+
+
+# TODO: pretrained 이름을 받기
 
 
 def load_VQA_DataLoader(

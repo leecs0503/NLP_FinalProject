@@ -6,6 +6,8 @@ from src.model.VGG19_Tansformer import (
 )
 import torch
 
+# TODO: 현재 구현체에 맞게 테스트코드 변경
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 

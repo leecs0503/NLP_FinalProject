@@ -97,12 +97,15 @@ class VQA_Trainer:
     def log_batch(
         self,
         loss: float,
+        corr_exp: float,
+        batch_size: float,
         phase: Literal["train", "valid"],
         num_epochs,
         epoch: int,
         batch_idx: int,
     ):
         self.writer.add_scalar(f"Step/Loss/{phase.upper()}-{epoch:02}", loss, batch_idx)
+        self.writer.add_scalar(f"Step/ACC/{phase.upper()}-{epoch:02}", corr_exp/batch_size, batch_idx)
         self.writer.flush()
         msg = "| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}".format(
             phase.upper(),
@@ -146,6 +149,7 @@ class VQA_Trainer:
             running_loss = 0.0
             running_corr_exp = 0
             batch_step_size = 0
+            running_count = 0
 
             if phase == "train":
                 scheduler.step()
@@ -158,6 +162,7 @@ class VQA_Trainer:
 
                 image = batch_sample["image"].to(self.device)
                 question = batch_sample["question"].to(self.device)
+                question_token = batch_sample["question_token"].to(self.device)
                 label = batch_sample["answer_label"].to(self.device)
                 multi_choice = batch_sample["answer_multi_choice"]  # not tensor, list.
 
@@ -167,7 +172,7 @@ class VQA_Trainer:
 
                 with torch.set_grad_enabled(phase == "train"):
                     output = self.model(
-                        image, question
+                        image, question_token
                     )  # [batch_size, ans_vocab_size=1000]
                     _, pred_exp = torch.max(output, 1)  # [batch_size]
                     loss = criterion(output, label)
@@ -178,9 +183,14 @@ class VQA_Trainer:
 
                 # pred_exp[pred_exp == ans_unk_idx] = -9999
                 running_loss += loss.item()
-                running_corr_exp += acc_open_ended(pred_exp, multi_choice)
+                corr_exp = acc_open_ended(pred_exp, multi_choice)
+                batch_size = question.shape[0]
+                running_corr_exp += corr_exp
+                running_count += question.shape[0]
                 self.log_batch(
                     loss=loss,
+                    corr_exp=corr_exp,
+                    batch_size=batch_size,
                     phase=phase,
                     num_epochs=num_epochs,
                     epoch=epoch,
