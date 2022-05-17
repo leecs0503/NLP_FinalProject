@@ -5,6 +5,9 @@ import torch
 import math
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 class ImageChannel(nn.Module):
     def __init__(self, embed_size: int):
         """
@@ -36,19 +39,19 @@ class ImageChannel(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, hidden_size: int, max_qst_length: int = 30):
+    def __init__(self, hidden_size: int, max_batch_size: int = 1024):
         """
         Args:
             hidden_size(int):
-            max_qst_length(int):
+            max_batch_size(int):
         Return
             x: torch.Tensor
         """
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=0.1)
 
-        pe = torch.zeros(max_qst_length, hidden_size)
-        position = torch.arange(0, max_qst_length, dtype=torch.float).unsqueeze(1)
+        pe = torch.zeros(max_batch_size, hidden_size)
+        position = torch.arange(0, max_batch_size, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
             torch.arange(0, hidden_size, 2).float() * (-math.log(10000.0) / hidden_size)
         )
@@ -73,9 +76,13 @@ def generate_mask(src: torch.Tensor, pad_token: int):
     qst_len = src.shape[-1]
 
     pad_attn_mask = torch.where(
-        src == pad_token, torch.ones(src.shape), torch.zeros(src.shape)
-    ).to(torch.bool)
-    pad_attn_mask = pad_attn_mask.unsqueeze(1).expand(batch_size, qst_len, qst_len)
+        src == pad_token,
+        torch.ones(src.shape).to(device),
+        torch.zeros(src.shape).to(device),
+    ).bool()
+    pad_attn_mask = (
+        pad_attn_mask.unsqueeze(1).expand(batch_size, qst_len, qst_len).to(device)
+    )
     return pad_attn_mask
 
 
@@ -113,12 +120,15 @@ class TextChannel(nn.Module):
             nhead=num_head,
             dim_feedforward=dim_feedforward,
         )
-        self.positional_encoding = PositionalEncoding(hidden_size, max_qst_length)
+        self.positional_encoding = PositionalEncoding(hidden_size=hidden_size)
         self.transformer = nn.TransformerEncoder(
             encoder_layer=encoder_layers,
             num_layers=num_encode_layers,
         )
-        self.fc = nn.Linear(hidden_size * num_encode_layers, embed_size)
+        self.lstm = nn.LSTM(
+            input_size=hidden_size, hidden_size=hidden_size, num_layers=1
+        )
+        self.fc = nn.Linear(2 * hidden_size, embed_size)
 
     # fmt: off
     def forward(self, question: torch.Tensor):
@@ -134,10 +144,14 @@ class TextChannel(nn.Module):
         mask = mask.repeat(self.num_head, 1, 1)                                    # [batch_size * num_head, hidden_size, hidden_size]
 
         embeddings = embeddings.transpose(0, 1)                                 # [max_qst_len, batch_size, hidden_size]
-        output = self.transformer(embeddings, mask=mask)                        # [num_encoder, batch_size, hidden_size]
-        output = output.transpose(0, 1)                                         # [batch_size, num_encoder, hidden_size]
-        output = output.reshape(output.shape[0], -1)                            # [batch_size, num_encoder * hidden_size]
-        qst_features = self.fc(output)                                          # [batch_size, embed_size]
+        output = self.transformer(embeddings, mask=mask)                        # [max_qst_len, batch_size, hidden_size]
+
+        _, (hidden, cell) = self.lstm(output)                            # [1, batch_size, word_embed_size]
+        qst_features = torch.cat((hidden, cell), 2)                      # [1, batch_size, 2*hidden_size]
+        qst_features = qst_features.transpose(0, 1)                      # [batch_size, 1, 2*hidden_size]
+        qst_features = qst_features.reshape(qst_features.size()[0], -1)  # [batch_size, 2*hidden_size]
+        qst_features = torch.tanh(qst_features)
+        qst_features = self.fc(qst_features)                             # [batch_size, embed_size]
 
         return qst_features
     # fmt: on

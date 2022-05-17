@@ -6,6 +6,8 @@ from src.model.VGG19_Tansformer import (
 )
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def test_ImageChannel():
     batch_size, embed_size = 3, 10
@@ -18,8 +20,13 @@ def test_ImageChannel():
     assert res.shape == torch.Size([batch_size, embed_size])
 
 
+def test_PositionalEncoding():
+    # todo: implement test code
+    return
+
+
 def test_generate_mask():
-    src = torch.tensor([3, 1, 2, 0, 0, 0], dtype=torch.int32, device="cpu").unsqueeze(0)
+    src = torch.tensor([[3, 1, 2, 0, 0, 0]], dtype=torch.int32).to(device)
     expected = torch.tensor(
         [
             [
@@ -32,8 +39,7 @@ def test_generate_mask():
             ]
         ],
         dtype=torch.int32,
-        device="cpu",
-    )
+    ).to(device)
     result = generate_mask(src, 0)
 
     assert expected.size() == result.size()
@@ -53,14 +59,14 @@ def test_TextChannel():
         max_qst_length=6,
         num_encode_layers=6,
         embed_size=embed_size,
-    ).to("cpu")
+    ).to(device)
     model.eval()
 
     # batch_size = 2
     question = torch.stack(
         [
-            torch.tensor([3, 1, 2, 0, 0, 0], dtype=torch.int32, device="cpu"),
-            torch.tensor([5, 2, 3, 4, 1, 0], dtype=torch.int32, device="cpu"),
+            torch.tensor([3, 1, 2, 0, 0, 0], dtype=torch.int32).to(device),
+            torch.tensor([5, 2, 3, 4, 1, 0], dtype=torch.int32).to(device),
         ]
     )
 
@@ -78,13 +84,13 @@ def test_Transformer_VQA():
         embed_size=embed_size,
         hidden_size=8,
         max_qst_length=6,
-    ).to("cpu")
+    ).to(device)
     model.eval()
-    image = torch.zeros((batch_size, 3, 244, 244))
+    image = torch.zeros((batch_size, 3, 244, 244)).to(device)
     question = torch.stack(
         [
-            torch.tensor([3, 1, 2, 0, 0, 0], dtype=torch.int32, device="cpu"),
-            torch.tensor([5, 2, 3, 4, 1, 0], dtype=torch.int32, device="cpu"),
+            torch.tensor([3, 1, 2, 0, 0, 0], dtype=torch.int32).to(device),
+            torch.tensor([5, 2, 3, 4, 1, 0], dtype=torch.int32).to(device),
         ]
     )
     res = model(question=question, image=image)
