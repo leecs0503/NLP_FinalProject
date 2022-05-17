@@ -2,6 +2,7 @@ import argparse
 import torch
 import os
 import sys
+from model.VGG19_Tansformer import Transformer_VQA
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -104,7 +105,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="VGG19_LSTM",
+        default="VGG19_Transformer",
         help="The name of the model",
     )
 
@@ -140,6 +141,26 @@ def get_argument() -> argparse.Namespace:
         type=float,
         default=0.5,
         help="dropout rate of dropout layer.",
+    )
+
+    # transformer setting
+
+    parser.add_argument(
+        "--num_head", type=int, default=8, help="transformer's number of head"
+    )
+
+    parser.add_argument(
+        "--dim_feedforward",
+        type=int,
+        default=2048,
+        help="transformer's feedforward layer's dimension",
+    )
+
+    parser.add_argument(
+        "--num_encoder_layers",
+        type=int,
+        default=6,
+        help="transformer's number of encoder layer",
     )
 
     parser.add_argument(
@@ -212,6 +233,19 @@ def main():
             hidden_size=args.hidden_layer_size,
             ans_vocab_size=ans_vocab_size,
             dropout_rate=args.dropout_rate,
+        ).to(device)
+    elif args.model_name == "VGG19_Transformer":
+        model = Transformer_VQA(
+            ans_vocab_size=ans_vocab_size,
+            dropout_rate=args.dropout_rate,
+            qst_vocab_size=qst_vocab_size,
+            pad_token=0,
+            embed_size=args.embed_size,
+            hidden_size=args.hidden_layer_size,
+            num_head=args.num_head,
+            dim_feedforward=args.dim_feedforward,
+            num_encode_layers=args.num_encoder_layers,
+            max_qst_length=args.max_question_length,
         ).to(device)
     else:
         assert False
