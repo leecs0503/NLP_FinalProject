@@ -52,6 +52,9 @@ class TextChannel(nn.Module):
     ):
         """
         Args:
+            pretrained_name(str): transformer의 pretrained weight load를 위한 name
+            embedding_size(int): word embedding size 
+            embed_size(int): output embed size
         """
         super().__init__()
         self.sbert = AutoModel.from_pretrained(pretrained_name)
@@ -61,7 +64,7 @@ class TextChannel(nn.Module):
     def forward(self, question_token: torch.Tensor):
         """
         Args:
-            ~~
+            question_token(torch.Tensor) : tokenizer를 사용해 얻은 question token
         Return:
             torch.Tensor (shape=[batch_size, embed_size])
         """
@@ -90,7 +93,12 @@ class Transformer_VQA(nn.Module):
     ):
         """
         Args:
-            ~~~
+            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기)
+            dropout_rate(int): dropout시 적용할 하이퍼 파라메터
+            pretrained_name(str): transformer의 pretrained weight load를 위한 name
+            embedding_size(int): word embedding size 
+            embed_size(int): output embed size
+
         Return:
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
@@ -113,7 +121,7 @@ class Transformer_VQA(nn.Module):
         """
         Args:
             image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
-            question(torch.Tensor): batch 크기만큼 들어있는 질의 텐서 (shape=[batch_size, max_qst_len])
+            question(torch.Tensor): batch 크기만큼 들어있는 질문의 텐서 (shape=[batch_size, max_qst_len])
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """

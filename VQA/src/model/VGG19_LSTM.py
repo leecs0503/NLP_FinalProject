@@ -49,6 +49,7 @@ class TextChannel(nn.Module):
             word_embed_size(int): word embedding할 크기 (default 300)
             hidden_size(int): LSTM의 hidden layer 크기 (default 512)
             num_layers(int): stack된 LSTM의 개수 (default 2)
+            embed_size(int): output embed size 
         """
         super().__init__()
         self.embedding_layer: nn.Embedding = nn.Embedding(
@@ -94,13 +95,13 @@ class LSTM_VQA(nn.Module):
     ):
         """
         Args:
-            embed_size(int): 이미지 체널과 텍스트 체널에 ,
+            embed_size(int): 이미지 체널과 텍스트 체널의 embed size 
             qst_vocab_size(int): qustion vocab의 크기
             word_embed_size(int): word embedding할 크기 (default 300)
             num_layers(int): stack된 LSTM의 개수 (default 2)
             hidden_size(int): LSTM의 hidden layer 크기 (default 512)
-            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기),
-            dropout_rate(int): dropout시 적용할 하이퍼 파라메터,
+            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기)
+            dropout_rate(int): dropout시 적용할 하이퍼 파라메터
         Return:
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
@@ -127,7 +128,7 @@ class LSTM_VQA(nn.Module):
         """
         Args:
             image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
-            question(torch.Tensor): batch 크기만큼 들어있는 질의 텐서 (shape=[batch_size, max_qst_len])
+            question(torch.Tensor): batch 크기만큼 들어있는 질문의 텐서 (shape=[batch_size, max_qst_len])
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
