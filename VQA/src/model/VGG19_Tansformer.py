@@ -105,8 +105,8 @@ class Transformer_VQA(nn.Module):
         super().__init__()
         self.image_channel = ImageChannel(embed_size=embed_size)
         self.text_channel = TextChannel(
-            embedding_size= 768,
-            embed_size=1024,
+            embedding_size=embedding_size,
+            embed_size=embed_size,
         )
         self.dropout = nn.Dropout(dropout_rate)
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)

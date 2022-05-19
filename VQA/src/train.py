@@ -238,14 +238,7 @@ def main():
         model = Transformer_VQA(
             ans_vocab_size=ans_vocab_size,
             dropout_rate=args.dropout_rate,
-            qst_vocab_size=qst_vocab_size,
-            pad_token=0,
             embed_size=args.embed_size,
-            hidden_size=args.hidden_layer_size,
-            num_head=args.num_head,
-            dim_feedforward=args.dim_feedforward,
-            num_encode_layers=args.num_encoder_layers,
-            max_qst_length=args.max_question_length,
         ).to(device)
     else:
         assert False
