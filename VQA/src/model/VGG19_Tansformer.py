@@ -105,6 +105,7 @@ class Transformer_VQA(nn.Module):
         super().__init__()
         self.image_channel = ImageChannel(embed_size=embed_size)
         self.text_channel = TextChannel(
+            pretrained_name=pretrained_name,
             embedding_size=embedding_size,
             embed_size=embed_size,
         )
