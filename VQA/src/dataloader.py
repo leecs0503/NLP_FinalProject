@@ -138,8 +138,9 @@ def load_data_loader(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     ),
 ) -> torch.utils.data.DataLoader:
+    x = [VQA_Raw_Data(x) for x in np.load(data_path, allow_pickle=True)]
     vqa_data = np.array(
-        [VQA_Raw_Data(x) for x in np.load(data_path, allow_pickle=True)]
+        x[:len(x)//20]
     )
     transform = transforms.Compose([transforms.ToTensor(), normalize])
     vqa_dataset = VQA_Dataset(

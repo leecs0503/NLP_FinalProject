@@ -10,6 +10,7 @@ from typing import Literal
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from typing import List
+from warmup_scheduler import GradualWarmupScheduler
 
 
 def acc_multi_choice(
@@ -104,8 +105,8 @@ class VQA_Trainer:
         epoch: int,
         batch_idx: int,
     ):
-        self.writer.add_scalar(f"Step/Loss/{phase.upper()}-{epoch:02}", loss, batch_idx)
-        self.writer.add_scalar(f"Step/ACC/{phase.upper()}-{epoch:02}", corr_exp/batch_size, batch_idx)
+        self.writer.add_scalar(f"Step{epoch:02}/Loss/{phase.upper()}-{epoch:02}", loss, batch_idx)
+        self.writer.add_scalar(f"Step{epoch:02}/ACC/{phase.upper()}-{epoch:02}", corr_exp/batch_size, batch_idx)
         self.writer.flush()
         msg = "| {} SET | Epoch [{:02d}/{:02d}], Step [{:04d}/{:04d}], Loss: {:.4f}".format(
             phase.upper(),
@@ -142,8 +143,8 @@ class VQA_Trainer:
         epoch: int,
         num_epochs: int,
         criterion: nn.CrossEntropyLoss,
-        optimizer: optim.Adam,
-        scheduler: lr_scheduler.StepLR,
+        optimizer, # optim.Adam
+        scheduler: GradualWarmupScheduler,
     ):
         for phase in self.data_loader:  # equal to: for phase in ['train', 'valid']:
             running_loss = 0.0
@@ -151,8 +152,11 @@ class VQA_Trainer:
             batch_step_size = 0
             running_count = 0
 
+            optimizer.zero_grad()
+
             if phase == "train":
-                scheduler.step()
+                optimizer.step()
+                scheduler.step(epoch)
                 self.model.train()
             else:
                 self.model.eval()
@@ -211,18 +215,16 @@ class VQA_Trainer:
 
     def run(
         self,
-        learning_rate: float,
+        optimizer,
         step_size: int,
         gamma: float,
         save_step: int = 1,
         start_epochs: int = 0,
         num_epochs: int = 30,
     ):
-        params = self.model.get_params()
-
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(params, lr=learning_rate)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        scheduler_warmup = GradualWarmupScheduler(optimizer=optimizer, multiplier=1, total_epoch=3, after_scheduler=scheduler)
 
         if start_epochs != 0:
             self.load_model(start_epochs)
@@ -233,7 +235,7 @@ class VQA_Trainer:
                 num_epochs=num_epochs,
                 criterion=criterion,
                 optimizer=optimizer,
-                scheduler=scheduler,
+                scheduler=scheduler_warmup,
             )
             if (epoch + 1) % save_step == 0:
                 self.save_model(epoch)

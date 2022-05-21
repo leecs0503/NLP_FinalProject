@@ -138,7 +138,7 @@ class Transformer_VQA(nn.Module):
         return combined_feature
     # fmt: on
     def get_name(self):
-        return 'VGG19+Transformer'
+        return 'VGG19+Transformer-hyper'
     def get_params(self):
         return (
             list(self.image_channel.fc.parameters())

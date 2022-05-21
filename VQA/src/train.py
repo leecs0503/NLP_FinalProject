@@ -2,6 +2,8 @@ import argparse
 import torch
 import os
 import sys
+import torch.optim as optim
+from datetime import datetime
 from model.VGG19_Tansformer import Transformer_VQA
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -22,7 +24,7 @@ def train_model(
     model: Model,
     data_loader: VQA_DataLoader,
     gamma: float,
-    learning_rate: float,
+    optimizer,
     step_size: int,
     num_epochs: int,
     save_step: int,
@@ -58,7 +60,7 @@ def train_model(
     )
 
     trainer.run(
-        learning_rate=learning_rate,
+        optimizer=optimizer,
         step_size=step_size,
         gamma=gamma,
         save_step=save_step,
@@ -92,11 +94,12 @@ def get_argument() -> argparse.Namespace:
         default="./models",
         help="directory for save/load model",
     )
+    now = datetime.now()
 
     parser.add_argument(
         "--tensorboard_dir",
         type=str,
-        default="runs",
+        default=f"runs/{now}",
         help="directory for tensorboard",
     )
 
@@ -198,6 +201,14 @@ def get_argument() -> argparse.Namespace:
         "--step_size", type=int, default=10, help="period of learning rate decay."
     )
 
+    parser.add_argument(
+        "--optimizer", type=str, default="adam", help="name of optimizer to use"
+    )
+
+    parser.add_argument(
+        "--momentum", type=float, default=0.9, help="momentum of SGD optimizer"
+    )
+
     parser.add_argument("--num_epochs", type=int, default=30, help="number of epochs.")
 
     parser.add_argument("--save_step", type=int, default=1, help="save step of model.")
@@ -242,6 +253,14 @@ def main():
         ).to(device)
     else:
         assert False
+
+    params = model.get_params()
+
+    if args.optimizer == "adam":
+        optimizer = optim.Adam(params, lr=args.learning_rate)
+    elif args.optimizer == "SGD":
+        optimizer = optim.SGD(params, lr=args.learning_rate, momentum=args.momentum)
+
     train_model(
         log_dir=args.log_dir,
         model_dir=args.model_dir,
@@ -249,7 +268,7 @@ def main():
         model=model,
         data_loader=data_loader,
         gamma=args.gamma,
-        learning_rate=args.learning_rate,
+        optimizer=optimizer,
         step_size=args.step_size,
         num_epochs=args.num_epochs,
         save_step=args.save_step,
