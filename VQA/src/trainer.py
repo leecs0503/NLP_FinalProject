@@ -75,6 +75,8 @@ class VQA_Trainer:
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
 
+        self.prev_acc = 0 # hyperparameter tuning을 위한 변수
+
     def load_model(
         self,
         start_epochs: int,
@@ -212,6 +214,12 @@ class VQA_Trainer:
                 epoch=epoch,
                 num_epochs=num_epochs,
             )
+            if self.prev_acc > epoch_acc_exp:
+                early_stop = True
+            else:
+                early_stop = False
+            self.prev_acc = epoch_acc_exp
+            return early_stop
 
     def run(
         self,
@@ -230,7 +238,7 @@ class VQA_Trainer:
             self.load_model(start_epochs)
 
         for epoch in range(start_epochs, num_epochs):
-            self.step(
+            early_stop = self.step(
                 epoch=epoch,
                 num_epochs=num_epochs,
                 criterion=criterion,
@@ -239,3 +247,5 @@ class VQA_Trainer:
             )
             if (epoch + 1) % save_step == 0:
                 self.save_model(epoch)
+            if early_stop == True:
+                break
