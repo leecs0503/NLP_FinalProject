@@ -71,6 +71,25 @@ def preprocess(args):
     np.save(os.path.join(args.vqa_output_dir, "test.npy"), np.array(test))
     np.save(os.path.join(args.vqa_output_dir, "test-dev.npy"), np.array(test_dev))
 
+    print("4. Creating Visual Grounding inputs...")
+
+    vg_train_data = create_input.visual_grounding_processing(
+        phase="train",
+        image_dir=args.vg_image_dir,
+        dataset_file=args.dataset_file,
+        instances_file=args.vg_instances_file,
+    )
+    
+    vg_val_data = create_input.visual_grounding_processing(
+        phase="val",
+        image_dir=args.vg_image_dir,
+        dataset_file=args.dataset_file,
+        instances_file=args.vg_instances_file,
+    )
+
+    np.save(os.path.join(args.vg_output_dir, "vg_train.npy"), np.array(vg_train_data))
+    np.save(os.path.join(args.vg_output_dir, "vg_val.npy"), np.array(vg_val_data))
+
     print("Preprocessing Done.")
 
 
@@ -104,6 +123,28 @@ def get_argument() -> argparse.Namespace():
 
     parser.add_argument(
         "--vqa_output_dir",
+        type=str,
+        default=os.path.join("..", "datasets"),
+        help="directory for outputs",
+    )
+
+    parser.add_argument(
+        "--vg_image_dir",
+        type=str,
+        default=os.path.join("..","datasets","Images","train2014")
+    )
+    parser.add_argument(
+        "--vg_idataset_file",
+        type=str,
+        default=os.path.join("..","datasets","visual_ground","dataset.json")
+    )
+    parser.add_argument(
+        "--vg_instances_file",
+        type=str,
+        default=os.path.join("..","datasets","visual_ground","instances.json")
+    )
+    parser.add_argument(
+        "--vg_output_dir",
         type=str,
         default=os.path.join("..", "datasets"),
         help="directory for outputs",
