@@ -1,6 +1,6 @@
 import json
 import os
-# import utils.text_helper as text_helper
+import utils.text_helper as text_helper
 from typing import Set, List
 
 
@@ -105,3 +105,10 @@ def vqa_processing(
         dataset.append(iminfo)
     return dataset
 
+if __name__ == '__main__':
+    dataset = visual_grounding_processing(
+        'val',
+        './datasets/Images/train2014',
+        './datasets/visual_ground/dataset.json',
+        './datasets/visual_ground/instances.json'
+    )

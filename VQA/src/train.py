@@ -5,6 +5,8 @@ import sys
 import torch.optim as optim
 from datetime import datetime
 from model.VGG19_Tansformer import Transformer_VQA
+from model.Fasterrcnn_transformer import Fasterrcnn_Transformer_VQA
+from model.VGG19_Transformer_cross_modal_attention import Transformer_VQA_crossmodal
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -108,7 +110,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="VGG19_Transformer",
+        default="VGG19_Transformer_cross_modal_attention_multijoint_learning",
         help="The name of the model",
     )
 
@@ -224,6 +226,8 @@ def main():
     data_loader = load_VQA_DataLoader(
         train_data_path=os.path.join(args.input_dir, "train.npy"),
         valid_data_path=os.path.join(args.input_dir, "valid.npy"),
+        train_vg_data_path=os.path.join(args.input_dir, "vg_train.npy"),
+        valid_vg_data_path=os.path.join(args.input_dir, "vg_val.npy"),
         qst_vocab_dict=VocabDict(os.path.join(args.input_dir, "vocab_questions.txt")),
         ans_vocab_dict=VocabDict(os.path.join(args.input_dir, "vocab_answers.txt")),
         max_qst_length=args.max_question_length,
@@ -232,8 +236,8 @@ def main():
         num_workers=args.num_workers,
     )
 
-    qst_vocab_size = data_loader["train"].dataset.question_dict.vocab_size
-    ans_vocab_size = data_loader["train"].dataset.answer_dict.vocab_size
+    qst_vocab_size = data_loader["train_vqa"].dataset.question_dict.vocab_size
+    ans_vocab_size = data_loader["train_vqa"].dataset.answer_dict.vocab_size
 
     if args.model_name == "VGG19_LSTM":
         model = LSTM_VQA(
@@ -247,6 +251,18 @@ def main():
         ).to(device)
     elif args.model_name == "VGG19_Transformer":
         model = Transformer_VQA(
+            ans_vocab_size=ans_vocab_size,
+            dropout_rate=args.dropout_rate,
+            embed_size=args.embed_size,
+        ).to(device)
+    elif args.model_name == "Fastrcnn_Transformer":
+        model = Fasterrcnn_Transformer_VQA(
+            ans_vocab_size=ans_vocab_size,
+            dropout_rate=args.dropout_rate,
+            embed_size=args.embed_size,
+        ).to(device)
+    elif args.model_name == "VGG19_Transformer_cross_modal_attention_multijoint_learning":
+        model = Transformer_VQA_crossmodal(
             ans_vocab_size=ans_vocab_size,
             dropout_rate=args.dropout_rate,
             embed_size=args.embed_size,

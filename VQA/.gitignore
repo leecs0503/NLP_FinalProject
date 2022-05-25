@@ -8,3 +8,6 @@
 temp.py
 /.pytest_cache/*
 /tests/dataloader/datasets/train.npy
+/05251227까지/*
+/05260248까지/*
+/multijoint_learning/*

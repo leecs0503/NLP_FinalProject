@@ -1,9 +1,14 @@
+from collections import OrderedDict
+import copy
+from typing import Dict, List
 from torch import nn
 import torchvision.models as models
 from torch import linalg as LA
 import torch
 import math
 from transformers import AutoTokenizer, AutoModel
+from torchvision.ops import MultiScaleRoIAlign
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,13 +21,13 @@ class ImageChannel(nn.Module):
             embed_size(int): 이미지 채널의 out_features
         """
         super().__init__()
-        model = models.vgg19(pretrained=True)
-        in_features = model.classifier[-1].in_features
-        model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
-        self.model = model
+        self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+
+        in_features = self.model.roi_heads.box_head.fc7.out_features
+
         self.fc = nn.Linear(in_features, embed_size)
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+    def forward(self, image: torch.Tensor, targets: List[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
         """
         Args:
             image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
@@ -30,8 +35,31 @@ class ImageChannel(nn.Module):
             torch.Tensor (shape=[batch_size, embed_size])
         """
         with torch.no_grad():
-            image_features = self.model(image)
-        image_features = self.fc(image_features)  # (batch_size, embed_size)
+            if targets is None and self.training:
+                targets = [
+                    {
+                        "boxes": torch.rand(image.shape[0],4).to(device),
+                        "labels": torch.rand(image.shape[0],1).to(device)
+                    } for _ in range(len(image))
+                ]
+            
+            images, targets = self.model.transform(image, targets)
+            print(images.tensors.shape)
+            print(image.shape)
+            features = self.model.backbone(image)
+            for x in features:
+                print(x, features[x].shape)
+            if isinstance(features, torch.Tensor):
+                features = OrderedDict([('0', features)])
+            proposals, _ = self.model.rpn(images, features, targets)
+            # features = self.roi(features, proposals, images.image_sizes)
+            print(len(proposals), proposals[0].shape)
+            features = self.model.roi_heads.box_roi_pool(features, proposals, images.image_sizes)
+            print(features.shape)
+            features = self.model.roi_heads.box_head(features)
+            print(features.shape)
+            
+        image_features = self.fc(features)  # (batch_size, embed_size)
 
         l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         normalized = image_features.div(l2_norm)  # (batch_size, embed_size)
@@ -82,7 +110,7 @@ class TextChannel(nn.Module):
     # fmt: on
 
 
-class Transformer_VQA(nn.Module):
+class Fasterrcnn_Transformer_VQA(nn.Module):
     def __init__(
         self,
         ans_vocab_size: int,
@@ -143,7 +171,7 @@ class Transformer_VQA(nn.Module):
         return vqa_feature, vg_feature
     # fmt: on
     def get_name(self):
-        return 'VGG19+Transformer-multijoint-learning'
+        return 'Faster-rcnn+Transformer-multijoint-learning'
     def get_params(self):
         return (
             list(self.image_channel.fc.parameters())
