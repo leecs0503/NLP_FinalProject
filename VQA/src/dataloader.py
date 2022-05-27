@@ -12,6 +12,7 @@ import os
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/bert-base-nli-mean-tokens', model_max_length=30)
+is_image_preprocess = True
 
 class VQA_DataLoader(TypedDict):
     train: torch.utils.data.DataLoader
@@ -56,6 +57,7 @@ class VQA_Input_Data:
             "answer_label": self.answer_label,
             "answer_multi_choice": self.answer_multi_choice,
         }
+
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -194,6 +196,7 @@ def load_vqa_data_loader(
 
 def load_vg_data_loader(
     vg_data_path:str,
+    image_tensor_dict,
     qst_vocab_dict: VocabDict,
     ans_vocab_dict: VocabDict,
     max_qst_length: int,
@@ -216,6 +219,7 @@ def load_vg_data_loader(
     vqa_dataset = Dataset(
         dataset=[],
         vg_dataset=vg_data,
+        image_tensor_dict=image_tensor_dict,
         max_qst_length=max_qst_length,
         max_num_ans=max_num_ans,
         transform=transform,
@@ -238,6 +242,7 @@ def load_VQA_DataLoader(
     valid_data_path: str,  #
     train_vg_data_path: str,
     valid_vg_data_path: str,
+    image_tensor_dict,
     qst_vocab_dict: VocabDict,
     ans_vocab_dict: VocabDict,
     max_qst_length: int,
@@ -266,6 +271,7 @@ def load_VQA_DataLoader(
     """
     return {
         "train_vg": load_vg_data_loader(
+            image_tensor_dict,
             vg_data_path=train_vg_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -277,6 +283,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "train_vqa": load_vqa_data_loader(
+            image_tensor_dict,
             data_path=train_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -288,6 +295,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "valid_vg": load_vg_data_loader(
+            image_tensor_dict,
             vg_data_path=valid_vg_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -299,6 +307,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "valid_vqa": load_vqa_data_loader(
+            image_tensor_dict,
             data_path=valid_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,

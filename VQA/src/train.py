@@ -7,6 +7,8 @@ from datetime import datetime
 from model.VGG19_Tansformer import Transformer_VQA
 from model.Fasterrcnn_transformer import Fasterrcnn_Transformer_VQA
 from model.VGG19_Transformer_cross_modal_attention import Transformer_VQA_crossmodal
+from model.VGG19_Transformer_CMATT_AOA import Transformer_VQA_CMATT_AOA
+from model.MCAoAN import MCAoAN
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -110,7 +112,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="VGG19_Transformer_cross_modal_attention_multijoint_learning",
+        default="MCAoAN",
         help="The name of the model",
     )
 
@@ -220,11 +222,13 @@ def get_argument() -> argparse.Namespace:
     return parser.parse_args()
 
 
+image_tensor_dict = dict()
 def main():
     args = get_argument()
 
     data_loader = load_VQA_DataLoader(
         train_data_path=os.path.join(args.input_dir, "train.npy"),
+        image_tensor_dict=image_tensor_dict,
         valid_data_path=os.path.join(args.input_dir, "valid.npy"),
         train_vg_data_path=os.path.join(args.input_dir, "vg_train.npy"),
         valid_vg_data_path=os.path.join(args.input_dir, "vg_val.npy"),
@@ -267,6 +271,20 @@ def main():
             dropout_rate=args.dropout_rate,
             embed_size=args.embed_size,
         ).to(device)
+    elif args.model_name == "VGG19_Transformer_cross_modal_attention(AoA)_with_multijoint_learning":
+        model = Transformer_VQA_CMATT_AOA(
+            ans_vocab_size=ans_vocab_size,
+            dropout_rate=args.dropout_rate,
+            embed_size=args.embed_size,
+        ).to(device)
+    elif args.model_name == "MCAoAN":
+        model = MCAoAN(
+            ans_vocab_size=ans_vocab_size,
+            qst_vocab_size=qst_vocab_size,
+            dropout_rate=args.dropout_rate,
+            embed_size=args.embed_size,
+        ).to(device)
+
     else:
         assert False
 
@@ -278,6 +296,7 @@ def main():
         optimizer = optim.SGD(params, lr=args.learning_rate, momentum=args.momentum)
 
     train_model(
+        image_tensor_dict,
         log_dir=args.log_dir,
         model_dir=args.model_dir,
         tensorboard_dir=args.tensorboard_dir,

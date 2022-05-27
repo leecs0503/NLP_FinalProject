@@ -123,6 +123,7 @@ def generalized_iou_loss(gt_bboxes, pr_bboxes, is_debug=False):
     return loss.sum(), iou
 
 
+
 class VQA_Trainer:
     """ """
 
@@ -162,6 +163,7 @@ class VQA_Trainer:
         load_path = os.path.join(
             self.model_path, f"{self.model.get_name()}-epoch-{start_epochs:02}.ckpt"
         )
+        print(load_path)
         states = torch.load(load_path)
         self.model.load_state_dict(states["model_state_dict"])
         return states["optimizer_state_dict"]
@@ -224,6 +226,7 @@ class VQA_Trainer:
 
     def step(
         self,
+        image_tensor_dict,
         epoch: int,
         num_epochs: int,
         criterion: nn.CrossEntropyLoss,
@@ -249,9 +252,9 @@ class VQA_Trainer:
 
             if "vqa" in phase:
                 for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
-                    if batch_idx > 300:
-                        if epoch <= 10:
-                            break
+                    # if batch_idx > 300:
+                    #     if epoch <= 10:
+                    #         break
                     # todo: 아래 로직을 함수로 빼기
                     image = batch_sample["image"].to(self.device)
                     question = batch_sample["question"].to(self.device)
@@ -265,7 +268,7 @@ class VQA_Trainer:
 
                     with torch.set_grad_enabled("train" in phase):
                         vqa_out, vg_out = self.model(
-                            image, question_token
+                            image, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
                         loss = criterion(vqa_out, label)
@@ -372,6 +375,7 @@ class VQA_Trainer:
 
     def run(
         self,
+        image_tensor_dict,
         optimizer,
         step_size: int,
         gamma: float,
@@ -393,6 +397,7 @@ class VQA_Trainer:
 
         for epoch in range(start_epochs, num_epochs):
             early_stop = self.step(
+                image_tensor_dict,
                 epoch=epoch,
                 num_epochs=num_epochs,
                 criterion=criterion,
