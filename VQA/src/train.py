@@ -22,6 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_model(
+    image_tensor_load:bool,
     log_dir: str,
     model_dir: str,
     tensorboard_dir: str,
@@ -55,6 +56,7 @@ def train_model(
     # os.makedirs(tensorboard_dir, exist_ok=True)
 
     trainer = VQA_Trainer(
+        image_tensor_load=image_tensor_load,
         device=device,
         model=model,
         data_loader=data_loader,
@@ -169,6 +171,13 @@ def get_argument() -> argparse.Namespace:
         default=6,
         help="transformer's number of encoder layer",
     )
+    
+    parser.add_argument(
+        "--image_tensor_load",
+        type=bool,
+        default=True,
+        help="preprocessed image tensor load?",
+    )
 
     parser.add_argument(
         "--gamma",
@@ -222,13 +231,12 @@ def get_argument() -> argparse.Namespace:
     return parser.parse_args()
 
 
-image_tensor_dict = dict()
 def main():
     args = get_argument()
 
     data_loader = load_VQA_DataLoader(
+        image_tensor_load=args.image_tensor_load,
         train_data_path=os.path.join(args.input_dir, "train.npy"),
-        image_tensor_dict=image_tensor_dict,
         valid_data_path=os.path.join(args.input_dir, "valid.npy"),
         train_vg_data_path=os.path.join(args.input_dir, "vg_train.npy"),
         valid_vg_data_path=os.path.join(args.input_dir, "vg_val.npy"),
@@ -296,7 +304,7 @@ def main():
         optimizer = optim.SGD(params, lr=args.learning_rate, momentum=args.momentum)
 
     train_model(
-        image_tensor_dict,
+        image_tensor_load=args.image_tensor_load,
         log_dir=args.log_dir,
         model_dir=args.model_dir,
         tensorboard_dir=args.tensorboard_dir,

@@ -250,25 +250,22 @@ from torch import linalg as LA
 import torch
 import math
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.models.detection import GeneralizedRCNN
 import torch.nn.functional as F
 from torchvision.ops import boxes as box_ops
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-class ImageChannel(nn.Module):
-    def __init__(self, embed_size: int):
+class ImagePreChannel(nn.Module):
+    def __init__(self):
         """
         Args:
             embed_size(int): 이미지 채널의 out_features
         """
         super().__init__()
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
-
-        in_features = self.model.roi_heads.box_head.fc7.out_features
-
-        self.fc = nn.Linear(in_features, embed_size)
+        self.out_features = self.model.roi_heads.box_head.fc7.out_features
 
     def postprocess_detections(self,
                                features,        # type: Tensor
@@ -367,9 +364,24 @@ class ImageChannel(nn.Module):
             features = self.model.roi_heads.box_head(features)
             class_logits, box_regression = self.model.roi_heads.box_predictor(features)
             features = self.postprocess_detections(features, class_logits, box_regression, proposals, images.image_sizes)
-            
-        image_features = self.fc(features)  # (batch_size, num_features, embed_size)
+        return features
+        # image_features = self.fc(features)  # (batch_size, num_features, embed_size)
 
+        # # l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
+        # # normalized = image_features.div(l2_norm)  # (batch_size, num_features, embed_size)
+
+        # return image_features
+class ImageChannel(nn.Module):
+    def __init__(self, embed_size: int, in_features: int):
+        """
+        Args:
+            embed_size(int): 이미지 채널의 out_features
+        """
+        super().__init__()
+        self.fc = nn.Linear(in_features, embed_size)
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        image_features = self.fc(features)  # (batch_size, num_features, embed_size)
         # l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         # normalized = image_features.div(l2_norm)  # (batch_size, num_features, embed_size)
 
@@ -442,7 +454,8 @@ class MCAoAN(nn.Module):
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
         super().__init__()
-        self.image_channel = ImageChannel(embed_size=embed_size)
+        self.ImagePreChannel = ImagePreChannel()
+        self.image_channel = ImageChannel(embed_size=embed_size, in_features=self.ImagePreChannel.out_features)
         self.text_channel = TextChannel(
             qst_vocab_size=qst_vocab_size,
             word_embed_size=embedding_size,
@@ -463,7 +476,7 @@ class MCAoAN(nn.Module):
     # fmt: off
     def forward(
         self,
-        image: torch.Tensor,
+        image_features: torch.Tensor,
         question_embedding: torch.Tensor,
     ):
         """
@@ -473,7 +486,7 @@ class MCAoAN(nn.Module):
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
-        img_feature = self.image_channel(image)                    # [batch_size, num_features, embed_size]
+        img_feature = self.image_channel(image_features)                    # [batch_size, num_features, embed_size]
         qst_feature = self.text_channel(question_embedding)                  # [batch_size, max_qst_len, embed_size]
         qst_feature, img_feature = self.mcaoa(qst_feature, img_feature)
         qst_attended_feature = self.mlp1(qst_feature)                       # [batch_size, max_qst_len, 1]

@@ -1,9 +1,11 @@
+import copy
 from datetime import datetime
 import logging
 from src.model.model import Model
 from src.dataloader import VQA_DataLoader
 import torch
 import os
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from typing import Literal
@@ -129,6 +131,7 @@ class VQA_Trainer:
 
     def __init__(
         self,
+        image_tensor_load:bool,
         device: torch.device,
         model: Model,
         data_loader: VQA_DataLoader,
@@ -137,6 +140,7 @@ class VQA_Trainer:
         tensorboard_path: str = "runs/",
     ):
         # todo: device를 context로
+        self.image_tensor_load=image_tensor_load
         self.device = device
         self.model = model
         self.data_loader = data_loader
@@ -155,6 +159,7 @@ class VQA_Trainer:
         self.logger.addHandler(file_handler)
 
         self.prev_acc = 0 # hyperparameter tuning을 위한 변수
+        self.flag = True
 
     def load_model(
         self,
@@ -167,6 +172,7 @@ class VQA_Trainer:
         states = torch.load(load_path)
         self.model.load_state_dict(states["model_state_dict"])
         return states["optimizer_state_dict"]
+        
 
     def save_model(
         self,
@@ -226,13 +232,41 @@ class VQA_Trainer:
 
     def step(
         self,
-        image_tensor_dict,
         epoch: int,
         num_epochs: int,
         criterion: nn.CrossEntropyLoss,
         optimizer, # optim.Adam
         scheduler: GradualWarmupScheduler,
     ):
+        if self.flag:
+            if self.image_tensor_load:
+                pass
+            else:
+                self.model.ImagePreChannel.eval()
+                for phase in self.data_loader:
+                    if 'vg' in phase:
+                        continue
+                    for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
+                        image = batch_sample["image"].to(self.device)
+                        name = batch_sample["name"]
+                        feats = self.model.ImagePreChannel(image)
+                        for i, feat in enumerate(feats):
+                            rname = name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "pt")
+                            with open(rname,'wb') as f:
+                                na = feat.cpu().numpy()
+                                np.save(f, na)
+                            # torch.save(feat, name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "pt"))
+                        msg = "| Preprocess | {} SET | Step [{:04d}/{:04d}]".format(
+                            phase.upper(),
+                            batch_idx,
+                            int(
+                                len(self.data_loader[phase].dataset)
+                                / self.data_loader[phase].batch_size
+                            ),
+                        )
+                        print(msg)
+                
+        self.flag = False
         for phase in self.data_loader:  # equal to: for phase in ['train', 'valid']:
             running_loss = 0.0
             running_corr_exp = 0
@@ -256,7 +290,8 @@ class VQA_Trainer:
                     #     if epoch <= 10:
                     #         break
                     # todo: 아래 로직을 함수로 빼기
-                    image = batch_sample["image"].to(self.device)
+                    name = batch_sample["name"]
+                    image_feat = torch.stack([torch.from_numpy(np.load(x.replace("Resized_Images", "Image_Tensors").replace("jpg", "pt")))[:30, :].to(self.device) for x in name]).to(self.device)
                     question = batch_sample["question"].to(self.device)
                     question_token = batch_sample["question_token"]
                     label = batch_sample["answer_label"].to(self.device)
@@ -268,7 +303,7 @@ class VQA_Trainer:
 
                     with torch.set_grad_enabled("train" in phase):
                         vqa_out, vg_out = self.model(
-                            image, question
+                            image_feat, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
                         loss = criterion(vqa_out, label)
@@ -375,7 +410,6 @@ class VQA_Trainer:
 
     def run(
         self,
-        image_tensor_dict,
         optimizer,
         step_size: int,
         gamma: float,
@@ -397,7 +431,6 @@ class VQA_Trainer:
 
         for epoch in range(start_epochs, num_epochs):
             early_stop = self.step(
-                image_tensor_dict,
                 epoch=epoch,
                 num_epochs=num_epochs,
                 criterion=criterion,

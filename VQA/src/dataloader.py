@@ -63,6 +63,7 @@ class VQA_Input_Data:
 class Dataset(torch.utils.data.Dataset):
     def __init__(
         self,
+        image_tensor_load:bool,
         dataset: List[VQA_Raw_Data],
         vg_dataset,
         max_qst_length: int,
@@ -75,6 +76,7 @@ class Dataset(torch.utils.data.Dataset):
         self.dataset = dataset
         self.vg_dataset = vg_dataset
         self.transform = transform
+        self.image_tensor_load=image_tensor_load
         if len(dataset) > 0:
             self.load_ans = dataset[0].valid_answers is not None
             self.question_dict = question_dict
@@ -89,10 +91,11 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, index: int) -> VQA_Input_Data:
         if index < len(self.dataset):
             vqa_data = self.dataset[index]
-
-            # preprocess image
-            image_rgb = Image.open(vqa_data.image_path).convert("RGB")
-            image = self.transform(image_rgb) if self.transform else image_rgb
+            image = 1
+            if self.image_tensor_load == False:
+                # preprocess image
+                image_rgb = Image.open(vqa_data.image_path).convert("RGB")
+                image = self.transform(image_rgb) if self.transform else image_rgb
 
             # preprocess question
             quest_idx_list = np.array(
@@ -121,14 +124,17 @@ class Dataset(torch.utils.data.Dataset):
                 answer_multi_choice=answer_multi_choice,
             ).to_dict()
             result["data_type"]="vqa"
+            result["name"]=vqa_data.image_path
             return result
         else:
             vg_data = self.vg_dataset[index - len(self.dataset)]
             # preprocess image
             image_id = vg_data["image_id"]
-            ori_image_rgb = Image.open(os.path.join('.','datasets','Images','train2014', f'COCO_train2014_{image_id:012}.jpg')).convert("RGB")
-            image_rgb = Image.open(os.path.join('.','datasets','Resized_Images','train2014', f'COCO_train2014_{image_id:012}.jpg')).convert("RGB")
-            image = self.transform(image_rgb) if self.transform else image_rgb
+            image = 1
+            if not self.image_tensor_load:
+                ori_image_rgb = Image.open(os.path.join('.','datasets','Images','train2014', f'COCO_train2014_{image_id:012}.jpg')).convert("RGB")
+                image_rgb = Image.open(os.path.join('.','datasets','Resized_Images','train2014', f'COCO_train2014_{image_id:012}.jpg')).convert("RGB")
+                image = self.transform(image_rgb) if self.transform else image_rgb
             sentence = vg_data["sentence"]
             question_token = tokenizer(sentence, padding='max_length', truncation=True, return_tensors='pt', max_length = 30)
             bbox = vg_data["bbox"]
@@ -159,6 +165,7 @@ class Dataset(torch.utils.data.Dataset):
         raise Exception("invalid params (vocab_type)")
 
 def load_vqa_data_loader(
+    image_tensor_load:bool,
     data_path: str,
     qst_vocab_dict: VocabDict,
     ans_vocab_dict: VocabDict,
@@ -174,11 +181,15 @@ def load_vqa_data_loader(
 ) -> torch.utils.data.DataLoader:
     vqa_data = [VQA_Raw_Data(x) for x in np.load(data_path, allow_pickle=True)]
 
-    # vqa_data = np.array(
-    #     vqa_data[:len(vqa_data)//20]
-    # )
-    transform = transforms.Compose([transforms.ToTensor(), normalize])
+    vqa_data = np.array(
+        vqa_data[:len(vqa_data)]
+    )
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        # normalize
+    ])
     vqa_dataset = Dataset(
+        image_tensor_load=image_tensor_load,
         dataset=vqa_data,
         vg_dataset=[],
         max_qst_length=max_qst_length,
@@ -195,8 +206,8 @@ def load_vqa_data_loader(
     )
 
 def load_vg_data_loader(
+    image_tensor_load:bool,
     vg_data_path:str,
-    image_tensor_dict,
     qst_vocab_dict: VocabDict,
     ans_vocab_dict: VocabDict,
     max_qst_length: int,
@@ -213,13 +224,16 @@ def load_vg_data_loader(
     vg_data = np.load(vg_data_path, allow_pickle=True)
 
     # vqa_data = np.array(
-    #     vqa_data[:len(vqa_data)//20]
+    #     vqa_data[:len(vqa_data)//100]
     # )
-    transform = transforms.Compose([transforms.ToTensor(), normalize])
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        # normalize,
+    ])
     vqa_dataset = Dataset(
+        image_tensor_load=image_tensor_load,
         dataset=[],
         vg_dataset=vg_data,
-        image_tensor_dict=image_tensor_dict,
         max_qst_length=max_qst_length,
         max_num_ans=max_num_ans,
         transform=transform,
@@ -238,11 +252,11 @@ def load_vg_data_loader(
 
 
 def load_VQA_DataLoader(
+    image_tensor_load: bool,
     train_data_path: str,  #
     valid_data_path: str,  #
     train_vg_data_path: str,
     valid_vg_data_path: str,
-    image_tensor_dict,
     qst_vocab_dict: VocabDict,
     ans_vocab_dict: VocabDict,
     max_qst_length: int,
@@ -271,7 +285,7 @@ def load_VQA_DataLoader(
     """
     return {
         "train_vg": load_vg_data_loader(
-            image_tensor_dict,
+            image_tensor_load=image_tensor_load,
             vg_data_path=train_vg_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -283,7 +297,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "train_vqa": load_vqa_data_loader(
-            image_tensor_dict,
+            image_tensor_load=image_tensor_load,
             data_path=train_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -295,7 +309,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "valid_vg": load_vg_data_loader(
-            image_tensor_dict,
+            image_tensor_load=image_tensor_load,
             vg_data_path=valid_vg_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
@@ -307,7 +321,7 @@ def load_VQA_DataLoader(
             shuffle=True,
         ),
         "valid_vqa": load_vqa_data_loader(
-            image_tensor_dict,
+            image_tensor_load=image_tensor_load,
             data_path=valid_data_path,
             qst_vocab_dict=qst_vocab_dict,
             ans_vocab_dict=ans_vocab_dict,
