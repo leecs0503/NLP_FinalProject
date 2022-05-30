@@ -40,12 +40,14 @@ class VQA_Input_Data:
         image,
         question,
         question_token,
+        answer_list,
         answer_label=None,
         answer_multi_choice=None,
     ):
         self.image = image
         self.question = question
         self.question_token = question_token
+        self.answer_list = answer_list
         self.answer_label = answer_label
         self.answer_multi_choice = answer_multi_choice
 
@@ -54,6 +56,7 @@ class VQA_Input_Data:
             "image": self.image,
             "question": self.question,
             "question_token": self.question_token,
+            "answer_list": self.answer_list,
             "answer_label": self.answer_label,
             "answer_multi_choice": self.answer_multi_choice,
         }
@@ -96,7 +99,6 @@ class Dataset(torch.utils.data.Dataset):
                 # preprocess image
                 image_rgb = Image.open(vqa_data.image_path).convert("RGB")
                 image = self.transform(image_rgb) if self.transform else image_rgb
-
             # preprocess question
             quest_idx_list = np.array(
                 [self.question_dict.word2idx("<pad>")] * self.max_qst_length
@@ -111,15 +113,23 @@ class Dataset(torch.utils.data.Dataset):
             if self.load_ans:
                 ans2idc = [self.answer_dict.word2idx(w) for w in vqa_data.valid_answers]
                 answer_label = np.random.choice(ans2idc)
+
                 mul2idc = list(
                     [-1] * self.max_num_ans
                 )  # padded with -1 (no meaning) not used in 'ans_vocab'
+                answer_list = [0] * self.answer_dict.vocab_size
+                for i in ans2idc:
+                    answer_list[i] += 1./3
+                    if answer_list[i] >= 1:
+                        answer_list[i] = 1.
+                answer_list = torch.tensor(answer_list)
                 mul2idc[: len(ans2idc)] = ans2idc  # our model should not predict -1
                 answer_multi_choice = mul2idc  # for evaluation metric of 'multiple choice'
             result = VQA_Input_Data(
                 image=image,
                 question=quest_idx_list,
                 question_token=question_token,
+                answer_list=answer_list,
                 answer_label=answer_label,
                 answer_multi_choice=answer_multi_choice,
             ).to_dict()
@@ -186,7 +196,7 @@ def load_vqa_data_loader(
     )
     transform = transforms.Compose([
         transforms.ToTensor(),
-        # normalize
+        normalize
     ])
     vqa_dataset = Dataset(
         image_tensor_load=image_tensor_load,
@@ -228,7 +238,7 @@ def load_vg_data_loader(
     # )
     transform = transforms.Compose([
         transforms.ToTensor(),
-        # normalize,
+        normalize,
     ])
     vqa_dataset = Dataset(
         image_tensor_load=image_tensor_load,
@@ -283,6 +293,8 @@ def load_VQA_DataLoader(
     Returns:
         torch.Tensor: 모델이 반환한 텐서
     """
+    # TODO: need to edit
+    is_suffle = True
     return {
         "train_vg": load_vg_data_loader(
             image_tensor_load=image_tensor_load,
@@ -294,7 +306,7 @@ def load_VQA_DataLoader(
             batch_size=batch_size,
             num_workers=num_workers,
             normalize=normalize,
-            shuffle=True,
+            shuffle=is_suffle,
         ),
         "train_vqa": load_vqa_data_loader(
             image_tensor_load=image_tensor_load,
@@ -306,7 +318,7 @@ def load_VQA_DataLoader(
             batch_size=batch_size,
             num_workers=num_workers,
             normalize=normalize,
-            shuffle=True,
+            shuffle=is_suffle,
         ),
         "valid_vg": load_vg_data_loader(
             image_tensor_load=image_tensor_load,
@@ -318,7 +330,7 @@ def load_VQA_DataLoader(
             batch_size=batch_size,
             num_workers=num_workers,
             normalize=normalize,
-            shuffle=True,
+            shuffle=is_suffle,
         ),
         "valid_vqa": load_vqa_data_loader(
             image_tensor_load=image_tensor_load,
@@ -330,6 +342,6 @@ def load_VQA_DataLoader(
             batch_size=batch_size,
             num_workers=num_workers,
             normalize=normalize,
-            shuffle=True,
+            shuffle=is_suffle,
         ),
     }

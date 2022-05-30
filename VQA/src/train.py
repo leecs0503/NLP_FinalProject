@@ -8,7 +8,8 @@ from model.VGG19_Tansformer import Transformer_VQA
 from model.Fasterrcnn_transformer import Fasterrcnn_Transformer_VQA
 from model.VGG19_Transformer_cross_modal_attention import Transformer_VQA_crossmodal
 from model.VGG19_Transformer_CMATT_AOA import Transformer_VQA_CMATT_AOA
-from model.MCAoAN import MCAoAN
+# need to edit
+from model.MCAoAN_vgg19 import MCAoAN
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -166,10 +167,10 @@ def get_argument() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--num_encoder_layers",
+        "--num_MCAoAN_LSTM_layers",
         type=int,
         default=6,
-        help="transformer's number of encoder layer",
+        help="number of MCAoAN LSTM layer",
     )
     
     parser.add_argument(

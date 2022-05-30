@@ -72,7 +72,7 @@ class MHAtt(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, v, k, q):
+    def forward(self, v, k, q, masks):
         n_batches = q.size(0)
         v = self.linear_v(v).view(
             n_batches,
@@ -94,7 +94,7 @@ class MHAtt(nn.Module):
             self.multi_head,
             self.hidden_size_head
         ).transpose(1, 2)
-        atted = self.att(v, k, q).transpose(1, 2)
+        atted = self.att(v, k, q, masks).transpose(1, 2)
         atted = atted.contiguous().view(
             n_batches,
             -1,
@@ -130,8 +130,8 @@ class AoA(nn.Module):
         self.linear_QG = nn.Linear(hidden_size, hidden_size)
         self.linear_QI = nn.Linear(hidden_size, hidden_size)
 
-    def forward(self, v, k, q):
-        V = self.multi_head(v, k, q)
+    def forward(self, v, k, q, masks):
+        V = self.multi_head(v, k, q, masks)
         I = self.linear_QI(q) + self.linear_VI(V)
         G = nn.functional.sigmoid(self.linear_QG(q) + self.linear_VG(V))
         return torch.mul(I, G)
@@ -175,9 +175,9 @@ class SAoA(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.norm2 = LayerNorm(hidden_size)
 
-    def forward(self, x):
+    def forward(self, x, masks):
         x = self.norm1(x + self.dropout1(
-            self.aoa(x, x, x)
+            self.aoa(x, x, x, masks)
         ))
 
         x = self.norm2(x + self.dropout2(
@@ -204,10 +204,10 @@ class GAoA(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.norm2 = LayerNorm(hidden_size)
 
-    def forward(self, x, y):
+    def forward(self, x, y, masks):
 
         x = self.norm1(x + self.dropout1(
-            self.aoa(y, y, x)
+            self.aoa(y, y, x, masks)
         ))
 
         x = self.norm2(x + self.dropout2(
@@ -229,14 +229,18 @@ class MCAoA(nn.Module):
         self.dec_list1 = nn.ModuleList([SAoA(hidden_size) for _ in range(layer)])
         self.dec_list2 = nn.ModuleList([GAoA(hidden_size) for _ in range(layer)])
 
-    def forward(self, x, y):
+    def forward(self, x, x_masks, y, y_masks):
         # Get hidden vector
+
+        x_masks = x_masks.unsqueeze(1).unsqueeze(2)
+        y_masks = y_masks.unsqueeze(1).unsqueeze(2)
+
         for enc in self.enc_list:
-            x = enc(x)
+            x = enc(x, x_masks)
 
         for i in range(len(self.dec_list1)):
-            y = self.dec_list1[i](y)
-            y = self.dec_list2[i](y, x)
+            y = self.dec_list1[i](y, y_masks)
+            y = self.dec_list2[i](y, x, x_masks)
 
         return x, y
 
@@ -250,10 +254,9 @@ from torch import linalg as LA
 import torch
 import math
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from torchvision.models.detection import GeneralizedRCNN
 import torch.nn.functional as F
 from torchvision.ops import boxes as box_ops
-
+import torch.nn.functional as nnf
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -261,84 +264,17 @@ class ImagePreChannel(nn.Module):
     def __init__(self):
         """
         Args:
-            embed_size(int): 이미지 채널의 out_features
         """
         super().__init__()
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
-        self.out_features = self.model.roi_heads.box_head.fc7.out_features
-
-    def postprocess_detections(self,
-                               features,        # type: Tensor
-                               class_logits,    # type: Tensor
-                               box_regression,  # type: Tensor
-                               proposals,       # type: List[Tensor]
-                               image_shapes     # type: List[Tuple[int, int]]
-                               ):
-        # type: (...) -> Tensor
-        device = class_logits.device
-        num_classes = class_logits.shape[-1]
-
-        boxes_per_image = [boxes_in_image.shape[0] for boxes_in_image in proposals]
-        pred_boxes = self.model.roi_heads.box_coder.decode(box_regression, proposals)
-
-        pred_scores = F.softmax(class_logits, -1)
-
-        pred_boxes_list = pred_boxes.split(boxes_per_image, 0)
-        pred_scores_list = pred_scores.split(boxes_per_image, 0)
-        features_list = features.split(boxes_per_image, 0)
-
-        all_features = []
-
-        for feature, boxes, scores, image_shape in zip(features_list, pred_boxes_list, pred_scores_list, image_shapes):
-            boxes = box_ops.clip_boxes_to_image(boxes, image_shape)
-
-            # create labels for each prediction
-            labels = torch.arange(num_classes, device=device)
-            labels = labels.view(1, -1).expand_as(scores)
-
-            # remove predictions with the background label
-            boxes = boxes[:, 1:]
-            scores = scores[:, 1:]
-            labels = labels[:, 1:]
-
-            ind = []
-            for i in range(boxes.shape[0]):
-                for _ in range(num_classes-1): ind.append(i)
-
-            ind = torch.tensor(ind, dtype=torch.int64).to(device)
-
-            # batch everything, by making every class prediction be a separate instance
-            boxes = boxes.reshape(-1, 4)
-            scores = scores.reshape(-1)
-            labels = labels.reshape(-1)
-
-
-            # remove low scoring boxes
-            inds = torch.where(scores > self.model.roi_heads.score_thresh)[0]
-            ind, boxes, scores, labels = ind[inds], boxes[inds], scores[inds], labels[inds]
-
-            # remove empty boxes
-            keep = box_ops.remove_small_boxes(boxes, min_size=1e-2)
-            ind, boxes, scores, labels = ind[keep], boxes[keep], scores[keep], labels[keep]
-
-            # non-maximum suppression, independently done per class
-            keep = box_ops.batched_nms(boxes, scores, labels, self.model.roi_heads.nms_thresh)
-            # keep only topk scoring predictions
-            keep = keep[:self.model.roi_heads.detections_per_img]
-            ind, boxes, scores, labels = ind[keep], boxes[keep], scores[keep], labels[keep]
-
-            feature = feature[torch.unique(ind)]
-
-            if feature.shape[0] > self.model.roi_heads.detections_per_img:
-                feature = feature[:self.model.roi_heads.detections_per_img, :]
-
-            feature = F.pad(feature, (0, 0, 0, self.model.roi_heads.detections_per_img - feature.shape[0]), mode="constant", value=0)
-
-            all_features.append(feature)
-
-
-        return torch.stack(all_features)
-
+        vgg19_model = models.vgg19(pretrained=True)
+        self.out_features = vgg19_model.classifier[-1].in_features
+        vgg19_model.classifier = nn.Sequential(*list(vgg19_model.classifier.children())[:-1])
+        self.vgg19_model = vgg19_model
+        self.embed_size = 1024
+        self.mx_img_len = 100
+        self.THREDHOLD = 0.5
+    
     def forward(self, image: List[torch.Tensor], targets: List[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
         """
         Args:
@@ -346,32 +282,47 @@ class ImagePreChannel(nn.Module):
         Return:
             torch.Tensor (shape=[batch_size, embed_size])
         """
+        all_result = []
+        all_mask = []
         with torch.no_grad():
-            # if targets is None and self.training:
-            #     targets = [
-            #         {
-            #             "boxes": torch.rand(image.shape[0],4).to(device),
-            #             "labels": torch.rand(image.shape[0],1).to(device)
-            #         } for _ in range(len(image))
-            #     ]
-            
-            # images, targets = self.model.transform(image, targets)
-            # features = self.model.backbone(image)
-            # if isinstance(features, torch.Tensor):
-            #     features = OrderedDict([('0', features)])
-            # proposals, _ = self.model.rpn(images, features, targets)
-            # features = self.model.roi_heads.box_roi_pool(features, proposals, images.image_sizes)
-            # features = self.model.roi_heads.box_head(features)
-            # class_logits, box_regression = self.model.roi_heads.box_predictor(features)
-            # features = self.postprocess_detections(features, class_logits, box_regression, proposals, images.image_sizes)
             result = self.model(image)
-        return features
-        # image_features = self.fc(features)  # (batch_size, num_features, embed_size)
+            for idx, obj in enumerate(result):
+                # obj's scores is descending
+                boxes = obj["boxes"]
+                tx = []
+                # print(boxes.shape[0])
+                # 전체 이미지도 넣는다.
+                tx.append(image[idx])
+                for nn, box in enumerate(boxes):
+                    if nn >= self.mx_img_len - 1:
+                        break
+                    x1, y1, x2, y2 = int(box[0].item()), int(box[1].item()), int(box[2].item()), int(box[3].item())
+                    if x1 == x2 or y1 == y2:
+                        print("!!")
+                        continue
+                    v = image[idx:idx+1, 0:3, x1:x2, y1:y2]
+                    v = nnf.interpolate(v, size=[224, 224], mode='bicubic', align_corners=False)
+                    tx.append(v.squeeze(0))
+                img_tensor = torch.stack(tx)
+                embed_features = self.vgg19_model(img_tensor) # |sub_image|, out_feature
+                mask = torch.zeros(embed_features.shape[0])
+                if embed_features.shape[0] < self.mx_img_len:
+                    mask = torch.cat([
+                        mask,
+                        torch.ones(self.mx_img_len - mask.shape[0])
+                    ])
+                    embed_features = torch.cat([
+                        embed_features,
+                        torch.zeros((self.mx_img_len - embed_features.shape[0], self.out_features)).to(device),
+                    ])
+                all_result.append(embed_features)
+                all_mask.append(mask)
+        all_result =  torch.stack(all_result)
+        all_mask = torch.stack(all_mask)
+        # print(all_result.shape)
+        # print(all_mask.shape)
+        return all_result, all_mask
 
-        # # l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
-        # # normalized = image_features.div(l2_norm)  # (batch_size, num_features, embed_size)
-
-        # return image_features
 class ImageChannel(nn.Module):
     def __init__(self, embed_size: int, in_features: int):
         """
@@ -395,7 +346,7 @@ class TextChannel(nn.Module):
         qst_vocab_size: int,
         word_embed_size: int = 300,
         hidden_size: int = 1024,
-        num_layers: int = 2,
+        num_layers: int = 1,
         embed_size: int = 1024,
     ):
         """
@@ -469,15 +420,16 @@ class MCAoAN(nn.Module):
         self.fc1 = nn.Linear(2 * embed_size, 2 * embed_size)
         self.fc2 = nn.Linear(2 * embed_size, embed_size)
         self.fc3 = nn.Linear(embed_size, 2)
-        self.fc4 = nn.Linear(2 * embed_size, ans_vocab_size)
-        self.fc5 = nn.Linear(2 * embed_size, 4)
+        self.fc4 = nn.Linear(embed_size, ans_vocab_size)
+        self.fc5 = nn.Linear(embed_size, 4)
 
-        self.layernorm = LayerNorm(2 * embed_size)
+        self.layernorm = LayerNorm(embed_size)
 
     # fmt: off
     def forward(
         self,
         image_features: torch.Tensor,
+        image_masks: torch.Tensor,
         question_embedding: torch.Tensor,
     ):
         """
@@ -488,45 +440,46 @@ class MCAoAN(nn.Module):
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
         img_feature = self.image_channel(image_features)                    # [batch_size, num_features, embed_size]
+        qst_masks = question_embedding == 0
+        image_masks = image_masks.type(torch.bool)
         qst_feature = self.text_channel(question_embedding)                  # [batch_size, max_qst_len, embed_size]
-        qst_feature, img_feature = self.mcaoa(qst_feature, img_feature)
+        qst_feature, img_feature = self.mcaoa(qst_feature, qst_masks, img_feature, image_masks)
         qst_attended_feature = self.mlp1(qst_feature)                       # [batch_size, max_qst_len, 1]
         qst_attended_feature = torch.squeeze(qst_attended_feature, 2)        # [batch_size, max_qst_len]
+        qst_attended_feature.masked_fill_(qst_masks, -1e9)
         qst_attended_feature = F.softmax(qst_attended_feature) 
         qst_attended_feature = torch.unsqueeze(qst_attended_feature, 1)     # [batch_size, 1, max_qst_len]
-        qst_attended_feature = torch.matmul(qst_attended_feature, qst_feature) # [batch_size, 1, embed_size]
+        qst_attended_feature = torch.bmm(qst_attended_feature, qst_feature) # [batch_size, 1, embed_size]
         qst_attended_feature = torch.squeeze(qst_attended_feature, 1)          # [batch_size, embed_size]
         img_attended_feature = self.mlp2(img_feature)                       # [batch_size, num_features, 1]
         img_attended_feature = torch.squeeze(img_attended_feature, 2)        # [batch_size, num_features]
+        img_attended_feature.masked_fill_(image_masks, -1e9)
         img_attended_feature = F.softmax(img_attended_feature)
         img_attended_feature = torch.unsqueeze(img_attended_feature, 1)     # [batch_size, 1, num_features]
-        img_attended_feature = torch.matmul(img_attended_feature, img_feature) # [batch_size, 1, embed_size]
+        img_attended_feature = torch.bmm(img_attended_feature, img_feature) # [batch_size, 1, embed_size]
         img_attended_feature = torch.squeeze(img_attended_feature, 1)          # [batch_size, embed_size]
 
-        fused_weight = torch.cat((qst_attended_feature, img_attended_feature), 1) # [batch_size, 2*embed_size]
-        fused_weight = self.fc1(fused_weight)
+        fused_feature = torch.stack([qst_attended_feature, img_attended_feature], dim=1) # [batch_size, 2, embed_size]
+        fused_weight = self.fc1(torch.cat((qst_attended_feature, img_attended_feature), dim=1))
         fused_weight = self.dropout(fused_weight)
         fused_weight = self.fc2(fused_weight)
         fused_weight = self.dropout(fused_weight)
         fused_weight = self.fc3(fused_weight)
         fused_weight = F.softmax(fused_weight)                          # [batch_size, 2]
-        qst_weight, img_weight = torch.chunk(fused_weight, 2, dim=1)    # [batch_size, 1]
-        qst_weight = torch.squeeze(qst_weight, 1)
-        qst_weight = torch.diagflat(qst_weight)
-        img_weight = torch.squeeze(img_weight, 1)
-        img_weight = torch.diagflat(img_weight)
+        fused_weight = fused_weight.unsqueeze(1)                        # [batch_size, 1, 2]
 
-        combined_feature = torch.cat((torch.matmul(qst_weight, qst_attended_feature), torch.matmul(img_weight, img_attended_feature)), 1)
+        combined_feature = torch.bmm(fused_weight, fused_feature)   # [batch_size, 1, embed_size]
+        combined_feature = combined_feature.squeeze(1)
         combined_feature = self.layernorm(combined_feature)
         vqa_feature = self.fc4(combined_feature)
 
-        # vqa_feature = F.sigmoid(vqa_feature)              # [batch_size, ans_vocab_size]
+        vqa_feature = F.sigmoid(vqa_feature)              # [batch_size, ans_vocab_size]
         vg_feature = self.fc5(combined_feature)               # [batch_size, 4]
         vg_feature = vg_feature.sigmoid() * 244
         return vqa_feature, vg_feature
     # fmt: on
     def get_name(self):
-        return 'MCAoAN'
+        return 'MCAoAN_vgg19'
     def get_params(self):
         return (
             list(self.image_channel.fc.parameters())

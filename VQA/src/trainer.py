@@ -246,14 +246,20 @@ class VQA_Trainer:
                 for phase in self.data_loader:
                     if 'vg' in phase:
                         continue
+                    if 'train' in phase:
+                        continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
                         image = batch_sample["image"].to(self.device)
                         name = batch_sample["name"]
-                        feats = self.model.ImagePreChannel(image)
-                        for i, feat in enumerate(feats):
-                            rname = name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "pt")
+                        feats, masks = self.model.ImagePreChannel(image)
+                        for i, (feat, mask) in enumerate(zip(feats,masks)):
+                            rname = name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "npy")
+                            mskname = name[i].replace("Resized_Images", "Image_Masks").replace("jpg", "npy")
                             with open(rname,'wb') as f:
                                 na = feat.cpu().numpy()
+                                np.save(f, na)
+                            with open(mskname,'wb') as f:
+                                na = mask.cpu().numpy()
                                 np.save(f, na)
                             # torch.save(feat, name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "pt"))
                         msg = "| Preprocess | {} SET | Step [{:04d}/{:04d}]".format(
@@ -291,9 +297,26 @@ class VQA_Trainer:
                     #         break
                     # todo: 아래 로직을 함수로 빼기
                     name = batch_sample["name"]
-                    image_feat = torch.stack([torch.from_numpy(np.load(x.replace("Resized_Images", "Image_Tensors").replace("jpg", "pt")))[:30, :].to(self.device) for x in name]).to(self.device)
+                    max_sub_img_num = 30
+                    image_feat = torch.stack([
+                        torch.from_numpy(
+                            np.load(
+                                x.replace("Resized_Images", "Image_Tensors").replace("jpg", "npy")
+                            )
+                        )[:max_sub_img_num, :]
+                    for x in name]).to(self.device)
+                    
+                    image_mask = torch.stack([
+                        torch.from_numpy(
+                            np.load(
+                                x.replace("Resized_Images", "Image_Masks").replace("jpg", "npy")
+                            )
+                        )[:max_sub_img_num]
+                    for x in name]).to(self.device)
+
                     question = batch_sample["question"].to(self.device)
                     question_token = batch_sample["question_token"]
+                    answer_list = batch_sample["answer_list"].to(self.device)
                     label = batch_sample["answer_label"].to(self.device)
                     multi_choice = batch_sample["answer_multi_choice"]  # not tensor, list.
 
@@ -303,10 +326,10 @@ class VQA_Trainer:
 
                     with torch.set_grad_enabled("train" in phase):
                         vqa_out, vg_out = self.model(
-                            image_feat, question
+                            image_feat, image_mask, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
-                        loss = criterion(vqa_out, label)
+                        loss = criterion(vqa_out, answer_list)
 
                         if "train" in phase:
                             loss.backward()
@@ -417,7 +440,8 @@ class VQA_Trainer:
         start_epochs: int = 0,
         num_epochs: int = 30,
     ):
-        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCELoss(reduction='sum').cuda()
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         scheduler_warmup = GradualWarmupScheduler(optimizer=optimizer, multiplier=1, total_epoch=3, after_scheduler=scheduler)
         '''
