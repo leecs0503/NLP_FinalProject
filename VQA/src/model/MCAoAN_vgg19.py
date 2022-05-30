@@ -6,7 +6,7 @@
 
 import torch.nn as nn
 import torch
-
+import torchvision.transforms as transforms
 
 class MLP(nn.Module):
     def __init__(self, hidden_size, dropout=0.1):
@@ -133,8 +133,8 @@ class AoA(nn.Module):
     def forward(self, v, k, q, masks):
         V = self.multi_head(v, k, q, masks)
         I = self.linear_QI(q) + self.linear_VI(V)
-        G = nn.functional.sigmoid(self.linear_QG(q) + self.linear_VG(V))
-        return torch.mul(I, G)
+        G = torch.sigmoid(self.linear_QG(q) + self.linear_VG(V))
+        return I * G
 
 
 # ---------------------------
@@ -195,7 +195,8 @@ class GAoA(nn.Module):
     def __init__(self, hidden_size, dropout = 0.1):
         super(GAoA, self).__init__()
 
-        self.aoa = AoA(hidden_size)
+        self.aoa1 = AoA(hidden_size)
+        self.aoa2 = AoA(hidden_size)
         self.ffn = FFN(hidden_size)
 
         self.dropout1 = nn.Dropout(dropout)
@@ -204,13 +205,20 @@ class GAoA(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.norm2 = LayerNorm(hidden_size)
 
-    def forward(self, x, y, masks):
+        self.dropout3 = nn.Dropout(dropout)
+        self.norm3 = LayerNorm(hidden_size)
+
+    def forward(self, x, x_masks, y, y_masks):
 
         x = self.norm1(x + self.dropout1(
-            self.aoa(y, y, x, masks)
+            self.aoa1(x, x, x, x_masks)
         ))
 
         x = self.norm2(x + self.dropout2(
+            self.aoa2(y, y, x, y_masks)
+        ))
+
+        x = self.norm3(x + self.dropout3(
             self.ffn(x)
         ))
 
@@ -218,7 +226,7 @@ class GAoA(nn.Module):
 
 
 # ------------------------------------------------
-# ---- MAC Layers Cascaded by Encoder-Decoder ----
+# --- MAoAC Layers Cascaded by Encoder-Decoder ---
 # ------------------------------------------------
 
 class MCAoA(nn.Module):
@@ -226,8 +234,7 @@ class MCAoA(nn.Module):
         super(MCAoA, self).__init__()
 
         self.enc_list = nn.ModuleList([SAoA(hidden_size) for _ in range(layer)])
-        self.dec_list1 = nn.ModuleList([SAoA(hidden_size) for _ in range(layer)])
-        self.dec_list2 = nn.ModuleList([GAoA(hidden_size) for _ in range(layer)])
+        self.dec_list = nn.ModuleList([GAoA(hidden_size) for _ in range(layer)])
 
     def forward(self, x, x_masks, y, y_masks):
         # Get hidden vector
@@ -238,9 +245,8 @@ class MCAoA(nn.Module):
         for enc in self.enc_list:
             x = enc(x, x_masks)
 
-        for i in range(len(self.dec_list1)):
-            y = self.dec_list1[i](y, y_masks)
-            y = self.dec_list2[i](y, x, x_masks)
+        for dec in self.dec_list:
+            y = dec(y, y_masks, x, x_masks)
 
         return x, y
 
@@ -256,7 +262,6 @@ import math
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 import torch.nn.functional as F
 from torchvision.ops import boxes as box_ops
-import torch.nn.functional as nnf
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -274,6 +279,12 @@ class ImagePreChannel(nn.Module):
         self.embed_size = 1024
         self.mx_img_len = 100
         self.THREDHOLD = 0.5
+        normalize = transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )
+        self.transform = transforms.Compose([
+            normalize
+        ])
     
     def forward(self, image: List[torch.Tensor], targets: List[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
         """
@@ -284,6 +295,7 @@ class ImagePreChannel(nn.Module):
         """
         all_result = []
         all_mask = []
+        
         with torch.no_grad():
             result = self.model(image)
             for idx, obj in enumerate(result):
@@ -292,7 +304,7 @@ class ImagePreChannel(nn.Module):
                 tx = []
                 # print(boxes.shape[0])
                 # 전체 이미지도 넣는다.
-                tx.append(image[idx])
+                tx.append(self.transform(image[idx]))
                 for nn, box in enumerate(boxes):
                     if nn >= self.mx_img_len - 1:
                         break
@@ -301,9 +313,10 @@ class ImagePreChannel(nn.Module):
                         print("!!")
                         continue
                     v = image[idx:idx+1, 0:3, x1:x2, y1:y2]
-                    v = nnf.interpolate(v, size=[224, 224], mode='bicubic', align_corners=False)
-                    tx.append(v.squeeze(0))
+                    v = F.interpolate(v, size=[224, 224], mode='bicubic', align_corners=False)
+                    tx.append(self.transform(v.squeeze(0)))
                 img_tensor = torch.stack(tx)
+                
                 embed_features = self.vgg19_model(img_tensor) # |sub_image|, out_feature
                 mask = torch.zeros(embed_features.shape[0])
                 if embed_features.shape[0] < self.mx_img_len:
@@ -345,9 +358,8 @@ class TextChannel(nn.Module):
         self,
         qst_vocab_size: int,
         word_embed_size: int = 300,
-        hidden_size: int = 1024,
+        hidden_size: int = 512,
         num_layers: int = 1,
-        embed_size: int = 1024,
     ):
         """
         Args:
@@ -362,7 +374,6 @@ class TextChannel(nn.Module):
         self.lstm = nn.LSTM(
             input_size=word_embed_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True,
         )
-        self.fc = nn.Linear(hidden_size, embed_size)
 
     # fmt: off
     def forward(self, question):
@@ -374,10 +385,8 @@ class TextChannel(nn.Module):
         """
         
         embeddings = self.embedding_layer(question)  # [batch_size, max_qst_len, word_embed_size]
-        embeddings = torch.tanh(embeddings)
+        # embeddings = torch.tanh(embeddings)
         qst_features, _ = self.lstm(embeddings)    # [batch_size, max_qst_len, hidden_size]
-        
-        qst_features = self.fc(qst_features)
 
         return qst_features
     # fmt: on
@@ -411,12 +420,13 @@ class MCAoAN(nn.Module):
         self.text_channel = TextChannel(
             qst_vocab_size=qst_vocab_size,
             word_embed_size=embedding_size,
-            embed_size=embed_size,
+            hidden_size=embed_size,
         )
         self.mcaoa = MCAoA(hidden_size=embed_size,layer=layer)
         self.mlp1 = MLP(embed_size, dropout_rate)
         self.mlp2 = MLP(embed_size, dropout_rate)
-        self.dropout = nn.Dropout(multi_modal_dropout)
+        self.dropout1 = nn.Dropout(multi_modal_dropout)
+        self.dropout2 = nn.Dropout(multi_modal_dropout)
         self.fc1 = nn.Linear(2 * embed_size, 2 * embed_size)
         self.fc2 = nn.Linear(2 * embed_size, embed_size)
         self.fc3 = nn.Linear(embed_size, 2)
@@ -445,35 +455,31 @@ class MCAoAN(nn.Module):
         qst_feature = self.text_channel(question_embedding)                  # [batch_size, max_qst_len, embed_size]
         qst_feature, img_feature = self.mcaoa(qst_feature, qst_masks, img_feature, image_masks)
         qst_attended_feature = self.mlp1(qst_feature)                       # [batch_size, max_qst_len, 1]
-        qst_attended_feature = torch.squeeze(qst_attended_feature, 2)        # [batch_size, max_qst_len]
-        qst_attended_feature.masked_fill_(qst_masks, -1e9)
-        qst_attended_feature = F.softmax(qst_attended_feature) 
-        qst_attended_feature = torch.unsqueeze(qst_attended_feature, 1)     # [batch_size, 1, max_qst_len]
-        qst_attended_feature = torch.bmm(qst_attended_feature, qst_feature) # [batch_size, 1, embed_size]
-        qst_attended_feature = torch.squeeze(qst_attended_feature, 1)          # [batch_size, embed_size]
-        img_attended_feature = self.mlp2(img_feature)                       # [batch_size, num_features, 1]
-        img_attended_feature = torch.squeeze(img_attended_feature, 2)        # [batch_size, num_features]
-        img_attended_feature.masked_fill_(image_masks, -1e9)
-        img_attended_feature = F.softmax(img_attended_feature)
-        img_attended_feature = torch.unsqueeze(img_attended_feature, 1)     # [batch_size, 1, num_features]
-        img_attended_feature = torch.bmm(img_attended_feature, img_feature) # [batch_size, 1, embed_size]
-        img_attended_feature = torch.squeeze(img_attended_feature, 1)          # [batch_size, embed_size]
+        qst_attended_feature.masked_fill_(qst_masks.unsqueeze(2), -1e9)
+        qst_attended_feature = F.softmax(qst_attended_feature, dim=1)
+        qst_attended_feature = torch.sum(qst_attended_feature * qst_feature, dim=1) # [batch_size, embed_size]
+        img_attended_feature = self.mlp2(img_feature)                               # [batch_size, num_features]
+        img_attended_feature.masked_fill_(image_masks.unsqueeze(2), -1e9)
+        img_attended_feature = F.softmax(img_attended_feature, dim=1)
+        img_attended_feature = torch.sum(img_attended_feature * img_feature, dim=1) # [batch_size, embed_size]
 
         fused_feature = torch.stack([qst_attended_feature, img_attended_feature], dim=1) # [batch_size, 2, embed_size]
         fused_weight = self.fc1(torch.cat((qst_attended_feature, img_attended_feature), dim=1))
-        fused_weight = self.dropout(fused_weight)
+        fused_weight = self.dropout1(fused_weight)
         fused_weight = self.fc2(fused_weight)
-        fused_weight = self.dropout(fused_weight)
+        fused_weight = self.dropout2(fused_weight)
         fused_weight = self.fc3(fused_weight)
-        fused_weight = F.softmax(fused_weight)                          # [batch_size, 2]
-        fused_weight = fused_weight.unsqueeze(1)                        # [batch_size, 1, 2]
+        fused_weight = F.softmax(fused_weight, dim=1)                   # [batch_size, 2]
+        fused_weight = fused_weight.unsqueeze(2)                        # [batch_size, 2, 1]
+        combined_feature = torch.sum(fused_weight * fused_feature, dim=1)   # [batch_size,  embed_size]
+        # combined_feature = combined_feature.squeeze(1)
 
-        combined_feature = torch.bmm(fused_weight, fused_feature)   # [batch_size, 1, embed_size]
-        combined_feature = combined_feature.squeeze(1)
+        # combined_feature = qst_attended_feature + img_attended_feature
+
         combined_feature = self.layernorm(combined_feature)
         vqa_feature = self.fc4(combined_feature)
 
-        vqa_feature = F.sigmoid(vqa_feature)              # [batch_size, ans_vocab_size]
+        vqa_feature = torch.sigmoid(vqa_feature)              # [batch_size, ans_vocab_size]
         vg_feature = self.fc5(combined_feature)               # [batch_size, 4]
         vg_feature = vg_feature.sigmoid() * 244
         return vqa_feature, vg_feature

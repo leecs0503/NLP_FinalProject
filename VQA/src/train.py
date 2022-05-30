@@ -176,7 +176,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--image_tensor_load",
         type=bool,
-        default=True,
+        default=False,
         help="preprocessed image tensor load?",
     )
 
@@ -291,7 +291,7 @@ def main():
             ans_vocab_size=ans_vocab_size,
             qst_vocab_size=qst_vocab_size,
             dropout_rate=args.dropout_rate,
-            embed_size=args.embed_size,
+            embed_size=args.hidden_layer_size,
         ).to(device)
 
     else:

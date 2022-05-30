@@ -196,7 +196,7 @@ def load_vqa_data_loader(
     )
     transform = transforms.Compose([
         transforms.ToTensor(),
-        normalize
+        # normalize
     ])
     vqa_dataset = Dataset(
         image_tensor_load=image_tensor_load,
@@ -238,7 +238,7 @@ def load_vg_data_loader(
     # )
     transform = transforms.Compose([
         transforms.ToTensor(),
-        normalize,
+        # normalize,
     ])
     vqa_dataset = Dataset(
         image_tensor_load=image_tensor_load,
@@ -294,7 +294,7 @@ def load_VQA_DataLoader(
         torch.Tensor: 모델이 반환한 텐서
     """
     # TODO: need to edit
-    is_suffle = True
+    is_suffle = False
     return {
         "train_vg": load_vg_data_loader(
             image_tensor_load=image_tensor_load,

@@ -246,8 +246,6 @@ class VQA_Trainer:
                 for phase in self.data_loader:
                     if 'vg' in phase:
                         continue
-                    if 'train' in phase:
-                        continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
                         image = batch_sample["image"].to(self.device)
                         name = batch_sample["name"]
@@ -329,7 +327,8 @@ class VQA_Trainer:
                             image_feat, image_mask, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
-                        loss = criterion(vqa_out, answer_list)
+                        # loss = criterion(vqa_out, answer_list)
+                        loss = criterion(vqa_out, label)
 
                         if "train" in phase:
                             loss.backward()
@@ -440,8 +439,8 @@ class VQA_Trainer:
         start_epochs: int = 0,
         num_epochs: int = 30,
     ):
-        # criterion = nn.CrossEntropyLoss()
-        criterion = nn.BCELoss(reduction='sum').cuda()
+        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.BCELoss(reduction='sum').to(self.device)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         scheduler_warmup = GradualWarmupScheduler(optimizer=optimizer, multiplier=1, total_epoch=3, after_scheduler=scheduler)
         '''
