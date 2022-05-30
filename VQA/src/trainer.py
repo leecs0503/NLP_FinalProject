@@ -1,4 +1,6 @@
 import copy
+
+import torchvision.transforms as transforms
 from datetime import datetime
 import logging
 from src.model.model import Model
@@ -126,6 +128,8 @@ def generalized_iou_loss(gt_bboxes, pr_bboxes, is_debug=False):
 
 
 
+loss_flag = 1
+from PIL import Image
 class VQA_Trainer:
     """ """
 
@@ -188,6 +192,7 @@ class VQA_Trainer:
 
     def log_batch(
         self,
+        trr: int,
         loss: float,
         corr_exp: float,
         batch_size: float,
@@ -204,10 +209,11 @@ class VQA_Trainer:
             epoch + 1,
             num_epochs,
             batch_idx,
-            int(
-                len(self.data_loader[phase].dataset)
-                / self.data_loader[phase].batch_size
-            ),
+            trr,
+            # int(
+            #     len(self.data_loader[phase].dataset)
+            #     / self.data_loader[phase].batch_size
+            # ),
             loss.item(),
             corr_exp / batch_size
         )
@@ -247,17 +253,30 @@ class VQA_Trainer:
                     if 'vg' in phase:
                         continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
-                        image = batch_sample["image"].to(self.device)
+                        # if 'train' in phase and batch_idx < 1500: # ~ 0530 1957
+                        #     continue
+                        # if 'valid' in phase and batch_idx < 500: #~ 0530 20 22
+                        #     continue
+                        img_path_list = batch_sample["image"]
+                        transform = transforms.Compose([
+                            transforms.ToTensor(),
+                        ])
+                        image_list = [
+                            torch.tensor(
+                                transform(Image.open(img_path).convert("RGB"))
+                            ).to(self.device)
+                            for img_path in img_path_list
+                        ]
                         name = batch_sample["name"]
-                        feats, masks = self.model.ImagePreChannel(image)
-                        for i, (feat, mask) in enumerate(zip(feats,masks)):
+                        feats, scores = self.model.ImagePreChannel(image_list)
+                        for i, (feat, score) in enumerate(zip(feats,scores)):
                             rname = name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "npy")
-                            mskname = name[i].replace("Resized_Images", "Image_Masks").replace("jpg", "npy")
+                            scorename = name[i].replace("Resized_Images", "Image_Scores").replace("jpg", "npy")
                             with open(rname,'wb') as f:
                                 na = feat.cpu().numpy()
                                 np.save(f, na)
-                            with open(mskname,'wb') as f:
-                                na = mask.cpu().numpy()
+                            with open(scorename,'wb') as f:
+                                na = score.cpu().numpy()
                                 np.save(f, na)
                             # torch.save(feat, name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "pt"))
                         msg = "| Preprocess | {} SET | Step [{:04d}/{:04d}]".format(
@@ -289,13 +308,17 @@ class VQA_Trainer:
                 self.model.eval()
 
             if "vqa" in phase:
+                batch_size =  self.data_loader[phase].batch_size
+                trr = 180 * 256 // batch_size if "train" in phase else 50 * 256 // batch_size
                 for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
+                    if batch_idx > trr:
+                        break
                     # if batch_idx > 300:
                     #     if epoch <= 10:
                     #         break
                     # todo: 아래 로직을 함수로 빼기
                     name = batch_sample["name"]
-                    max_sub_img_num = 30
+                    max_sub_img_num = 10
                     image_feat = torch.stack([
                         torch.from_numpy(
                             np.load(
@@ -304,12 +327,13 @@ class VQA_Trainer:
                         )[:max_sub_img_num, :]
                     for x in name]).to(self.device)
                     
+                    score_thr = 0.2
                     image_mask = torch.stack([
                         torch.from_numpy(
                             np.load(
-                                x.replace("Resized_Images", "Image_Masks").replace("jpg", "npy")
+                                x.replace("Resized_Images", "Image_Scores").replace("jpg", "npy")
                             )
-                        )[:max_sub_img_num]
+                        )[:max_sub_img_num] > score_thr
                     for x in name]).to(self.device)
 
                     question = batch_sample["question"].to(self.device)
@@ -327,8 +351,10 @@ class VQA_Trainer:
                             image_feat, image_mask, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
-                        # loss = criterion(vqa_out, answer_list)
-                        loss = criterion(vqa_out, label)
+                        if loss_flag == 0:
+                            loss = criterion(vqa_out, label)
+                        if loss_flag == 1:
+                            loss = criterion(vqa_out, answer_list)
 
                         if "train" in phase:
                             loss.backward()
@@ -341,6 +367,7 @@ class VQA_Trainer:
                     running_corr_exp += corr_exp
                     running_count += question.shape[0]
                     self.log_batch(
+                        trr=trr,
                         loss=loss,
                         corr_exp=corr_exp,
                         batch_size=batch_size,
@@ -351,9 +378,9 @@ class VQA_Trainer:
                     )
                 # Print the average loss and accuracy in an epoch.
                 epoch_loss = running_loss / batch_step_size
-                epoch_acc_exp = running_corr_exp.double() / len(
-                    self.data_loader[phase].dataset
-                )
+                epoch_acc_exp = running_corr_exp.double() / trr / batch_size # / len(
+                #     self.data_loader[phase].dataset
+                # )
                 self.log_step(
                     epoch_loss=epoch_loss,
                     epoch_acc_exp=epoch_acc_exp,
@@ -439,8 +466,10 @@ class VQA_Trainer:
         start_epochs: int = 0,
         num_epochs: int = 30,
     ):
-        criterion = nn.CrossEntropyLoss()
-        # criterion = nn.BCELoss(reduction='sum').to(self.device)
+        if loss_flag == 0:
+            criterion = nn.CrossEntropyLoss()
+        if loss_flag == 1:
+            criterion = nn.BCELoss(reduction='sum').to(self.device)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         scheduler_warmup = GradualWarmupScheduler(optimizer=optimizer, multiplier=1, total_epoch=3, after_scheduler=scheduler)
         '''

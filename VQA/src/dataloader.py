@@ -95,10 +95,13 @@ class Dataset(torch.utils.data.Dataset):
         if index < len(self.dataset):
             vqa_data = self.dataset[index]
             image = 1
-            if self.image_tensor_load == False:
-                # preprocess image
-                image_rgb = Image.open(vqa_data.image_path).convert("RGB")
-                image = self.transform(image_rgb) if self.transform else image_rgb
+            img_path = vqa_data.image_path.replace("Resized_Images", "Images")
+            # if self.image_tensor_load == False:
+            #     # preprocess image
+
+            #     image = np.array(Image.open(img_path).convert("RGB"))
+            #     # image_rgb = Image.open(vqa_data.image_path).convert("RGB")
+            #     # image = self.transform(image_ori_rgb) if self.transform else image_ori_rgb
             # preprocess question
             quest_idx_list = np.array(
                 [self.question_dict.word2idx("<pad>")] * self.max_qst_length
@@ -126,7 +129,7 @@ class Dataset(torch.utils.data.Dataset):
                 mul2idc[: len(ans2idc)] = ans2idc  # our model should not predict -1
                 answer_multi_choice = mul2idc  # for evaluation metric of 'multiple choice'
             result = VQA_Input_Data(
-                image=image,
+                image=img_path,
                 question=quest_idx_list,
                 question_token=question_token,
                 answer_list=answer_list,

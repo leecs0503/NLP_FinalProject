@@ -101,7 +101,10 @@ class MHAtt(nn.Module):
             self.hidden_size
         )
 
-        atted = self.linear_merge(atted).squeeze(1)
+        # print(atted.shape)
+        atted = self.linear_merge(atted) #.squeeze(1)
+        # print(atted.shape)
+        
 
         return atted
 
@@ -134,6 +137,7 @@ class AoA(nn.Module):
         V = self.multi_head(v, k, q, masks)
         I = self.linear_QI(q) + self.linear_VI(V)
         G = torch.sigmoid(self.linear_QG(q) + self.linear_VG(V))
+        # return V
         return I * G
 
 
@@ -272,13 +276,13 @@ class ImagePreChannel(nn.Module):
         """
         super().__init__()
         self.model = fasterrcnn_resnet50_fpn(pretrained=True)
+        self.model.roi_heads.nms_thresh=0.7
         vgg19_model = models.vgg19(pretrained=True)
         self.out_features = vgg19_model.classifier[-1].in_features
         vgg19_model.classifier = nn.Sequential(*list(vgg19_model.classifier.children())[:-1])
         self.vgg19_model = vgg19_model
         self.embed_size = 1024
         self.mx_img_len = 100
-        self.THREDHOLD = 0.5
         normalize = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         )
@@ -294,47 +298,58 @@ class ImagePreChannel(nn.Module):
             torch.Tensor (shape=[batch_size, embed_size])
         """
         all_result = []
-        all_mask = []
+        all_score = []
         
         with torch.no_grad():
             result = self.model(image)
             for idx, obj in enumerate(result):
                 # obj's scores is descending
                 boxes = obj["boxes"]
+                scores_a = obj["scores"]
                 tx = []
                 # print(boxes.shape[0])
                 # 전체 이미지도 넣는다.
-                tx.append(self.transform(image[idx]))
-                for nn, box in enumerate(boxes):
+                tx.append(
+                    F.interpolate(
+                        self.transform(image[idx].unsqueeze(0)),
+                        size=[224, 224],
+                        mode='bicubic',
+                        align_corners=False,
+                    ).squeeze(0)
+                )
+                scores = [1.]
+
+                for nn, (box,score) in enumerate(zip(boxes,scores_a)):
                     if nn >= self.mx_img_len - 1:
                         break
                     x1, y1, x2, y2 = int(box[0].item()), int(box[1].item()), int(box[2].item()), int(box[3].item())
                     if x1 == x2 or y1 == y2:
                         print("!!")
                         continue
-                    v = image[idx:idx+1, 0:3, x1:x2, y1:y2]
+                    v = image[idx][0:3, y1:y2, x1:x2].unsqueeze(0)
                     v = F.interpolate(v, size=[224, 224], mode='bicubic', align_corners=False)
                     tx.append(self.transform(v.squeeze(0)))
+                    scores.append(score)
+                scores = torch.tensor(scores).to(device)
                 img_tensor = torch.stack(tx)
                 
                 embed_features = self.vgg19_model(img_tensor) # |sub_image|, out_feature
-                mask = torch.zeros(embed_features.shape[0])
                 if embed_features.shape[0] < self.mx_img_len:
-                    mask = torch.cat([
-                        mask,
-                        torch.ones(self.mx_img_len - mask.shape[0])
+                    scores = torch.cat([
+                        scores,
+                        torch.zeros(self.mx_img_len - scores.shape[0]).to(device),
                     ])
                     embed_features = torch.cat([
                         embed_features,
                         torch.zeros((self.mx_img_len - embed_features.shape[0], self.out_features)).to(device),
                     ])
                 all_result.append(embed_features)
-                all_mask.append(mask)
+                all_score.append(scores)
         all_result =  torch.stack(all_result)
-        all_mask = torch.stack(all_mask)
+        all_score = torch.stack(all_score)
         # print(all_result.shape)
         # print(all_mask.shape)
-        return all_result, all_mask
+        return all_result, all_score
 
 class ImageChannel(nn.Module):
     def __init__(self, embed_size: int, in_features: int):
@@ -347,8 +362,8 @@ class ImageChannel(nn.Module):
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         image_features = self.fc(features)  # (batch_size, num_features, embed_size)
-        # l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
-        # normalized = image_features.div(l2_norm)  # (batch_size, num_features, embed_size)
+        l2_norm = LA.norm(image_features, ord=2, dim=2, keepdim=True)
+        image_features = image_features.div(l2_norm)  # (batch_size, num_features, embed_size)
 
         return image_features
 
@@ -422,7 +437,7 @@ class MCAoAN(nn.Module):
             word_embed_size=embedding_size,
             hidden_size=embed_size,
         )
-        self.mcaoa = MCAoA(hidden_size=embed_size,layer=layer)
+        self.mcaoa = MCAoA(hidden_size=embed_size, layer=layer)
         self.mlp1 = MLP(embed_size, dropout_rate)
         self.mlp2 = MLP(embed_size, dropout_rate)
         self.dropout1 = nn.Dropout(multi_modal_dropout)
@@ -434,6 +449,10 @@ class MCAoAN(nn.Module):
         self.fc5 = nn.Linear(embed_size, 4)
 
         self.layernorm = LayerNorm(embed_size)
+        
+        self.dropout = nn.Dropout(0.5)
+        self.fc11 = nn.Linear(embed_size, ans_vocab_size)
+        self.fc22 = nn.Linear(ans_vocab_size, ans_vocab_size)
 
     # fmt: off
     def forward(
@@ -454,6 +473,7 @@ class MCAoAN(nn.Module):
         image_masks = image_masks.type(torch.bool)
         qst_feature = self.text_channel(question_embedding)                  # [batch_size, max_qst_len, embed_size]
         qst_feature, img_feature = self.mcaoa(qst_feature, qst_masks, img_feature, image_masks)
+        
         qst_attended_feature = self.mlp1(qst_feature)                       # [batch_size, max_qst_len, 1]
         qst_attended_feature.masked_fill_(qst_masks.unsqueeze(2), -1e9)
         qst_attended_feature = F.softmax(qst_attended_feature, dim=1)
@@ -472,30 +492,45 @@ class MCAoAN(nn.Module):
         fused_weight = F.softmax(fused_weight, dim=1)                   # [batch_size, 2]
         fused_weight = fused_weight.unsqueeze(2)                        # [batch_size, 2, 1]
         combined_feature = torch.sum(fused_weight * fused_feature, dim=1)   # [batch_size,  embed_size]
-        # combined_feature = combined_feature.squeeze(1)
 
+        # aoa
         # combined_feature = qst_attended_feature + img_attended_feature
 
+        # 임시 코드
+        # combined_feature = torch.mul(qst_attended_feature, img_attended_feature)     # [batch_size, embed_size]
+        # # combined_feature = torch.mul(qst_attended_feature, img_attended_feature)     # [batch_size, embed_size]
+        # combined_feature = torch.tanh(combined_feature)             # [batch_size, embed_size]
+        # combined_feature = self.dropout(combined_feature)          # [batch_size, embed_size]
+        # combined_feature = self.fc11(combined_feature)              # [batch_size, ans_vocab_size]
+        # combined_feature = torch.tanh(combined_feature)             # [batch_size, ans_vocab_size]
+        # combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
+        # combined_feature = self.fc22(combined_feature)              # [batch_size, ans_vocab_size]
+        # return combined_feature, None
+
+        # aoa
         combined_feature = self.layernorm(combined_feature)
         vqa_feature = self.fc4(combined_feature)
 
         vqa_feature = torch.sigmoid(vqa_feature)              # [batch_size, ans_vocab_size]
-        vg_feature = self.fc5(combined_feature)               # [batch_size, 4]
-        vg_feature = vg_feature.sigmoid() * 244
-        return vqa_feature, vg_feature
+
+        # vg
+        # vg_feature = self.fc5(combined_feature)               # [batch_size, 4]
+        # vg_feature = vg_feature.sigmoid() * 224
+        return vqa_feature, None
     # fmt: on
     def get_name(self):
         return 'MCAoAN_vgg19'
     def get_params(self):
-        return (
-            list(self.image_channel.fc.parameters())
-            + list(self.text_channel.parameters())
-            + list(self.mcaoa.parameters())
-            + list(self.mlp1.parameters())
-            + list(self.mlp2.parameters())
-            + list(self.fc1.parameters())
-            + list(self.fc2.parameters())
-            + list(self.fc3.parameters())
-            + list(self.fc4.parameters())
-            + list(self.fc5.parameters())
-        )
+        return self.parameters()
+        # (
+        #     list(self.image_channel.fc.parameters())
+        #     + list(self.text_channel.parameters())
+        #     + list(self.mcaoa.parameters())
+        #     + list(self.mlp1.parameters())
+        #     + list(self.mlp2.parameters())
+        #     + list(self.fc1.parameters())
+        #     + list(self.fc2.parameters())
+        #     + list(self.fc3.parameters())
+        #     + list(self.fc4.parameters())
+        #     + list(self.fc5.parameters())
+        # )

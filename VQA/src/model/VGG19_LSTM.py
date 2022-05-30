@@ -4,18 +4,17 @@ from torch import linalg as LA
 import torch
 
 
-class ImageChannel(nn.Module):
-    def __init__(self, embed_size: int):
+class ImagePreChannel(nn.Module):
+    def __init__(self):
         """
         Args:
             embed_size(int): 이미지 채널의 out_features
         """
         super().__init__()
         model = models.vgg19(pretrained=True)
-        in_features = model.classifier[-1].in_features
+        self.in_features = model.classifier[-1].in_features
         model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
         self.model = model
-        self.fc = nn.Linear(in_features, embed_size)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
@@ -26,7 +25,28 @@ class ImageChannel(nn.Module):
         """
         with torch.no_grad():
             image_features = self.model(image)
-        image_features = self.fc(image_features)  # (batch_size, embed_size)
+        y = 1//0
+
+class ImageChannel(nn.Module):
+    def __init__(self, embed_size: int):
+        """
+        Args:
+            embed_size(int): 이미지 채널의 out_features
+        """
+        super().__init__()
+        model = models.vgg19(pretrained=True)
+        in_features = model.classifier[-1].in_features
+        self.fc = nn.Linear(in_features, embed_size)
+
+    def forward(self, image_feature: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
+        Return:
+            torch.Tensor (shape=[batch_size, embed_size])
+        """
+        image_feature = image_feature[:,0,:]
+        image_features = self.fc(image_feature.squeeze(1))  # (batch_size, embed_size)
 
         l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         normalized = image_features.div(l2_norm)  # (batch_size, embed_size)
@@ -122,7 +142,8 @@ class LSTM_VQA(nn.Module):
     # fmt: off
     def forward(
         self,
-        image: torch.Tensor,
+        image_feature: torch.Tensor,
+        image_mask: torch.Tensor,
         question: torch.Tensor,
     ):
         """
@@ -132,7 +153,7 @@ class LSTM_VQA(nn.Module):
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
-        img_feature = self.image_channel(image)                    # [batch_size, embed_size]
+        img_feature = self.image_channel(image_feature)                    # [batch_size, embed_size]
         qst_feature = self.text_channel(question)                  # [batch_size, embed_size]
         combined_feature = torch.mul(img_feature, qst_feature)     # [batch_size, embed_size]
         combined_feature = torch.tanh(combined_feature)             # [batch_size, embed_size]
@@ -141,7 +162,7 @@ class LSTM_VQA(nn.Module):
         combined_feature = torch.tanh(combined_feature)             # [batch_size, ans_vocab_size]
         combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
         combined_feature = self.fc2(combined_feature)              # [batch_size, ans_vocab_size]
-        return combined_feature
+        return combined_feature, None
     # fmt: on
 
     def get_params(self):
