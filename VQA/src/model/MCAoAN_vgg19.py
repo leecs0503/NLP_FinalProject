@@ -477,10 +477,12 @@ class MCAoAN(nn.Module):
         qst_attended_feature = self.mlp1(qst_feature)                       # [batch_size, max_qst_len, 1]
         qst_attended_feature.masked_fill_(qst_masks.unsqueeze(2), -1e9)
         qst_attended_feature = F.softmax(qst_attended_feature, dim=1)
+        qst_att = qst_attended_feature
         qst_attended_feature = torch.sum(qst_attended_feature * qst_feature, dim=1) # [batch_size, embed_size]
         img_attended_feature = self.mlp2(img_feature)                               # [batch_size, num_features]
         img_attended_feature.masked_fill_(image_masks.unsqueeze(2), -1e9)
         img_attended_feature = F.softmax(img_attended_feature, dim=1)
+        img_att = img_attended_feature
         img_attended_feature = torch.sum(img_attended_feature * img_feature, dim=1) # [batch_size, embed_size]
 
         fused_feature = torch.stack([qst_attended_feature, img_attended_feature], dim=1) # [batch_size, 2, embed_size]
@@ -516,7 +518,7 @@ class MCAoAN(nn.Module):
         # vg
         # vg_feature = self.fc5(combined_feature)               # [batch_size, 4]
         # vg_feature = vg_feature.sigmoid() * 224
-        return vqa_feature, None
+        return vqa_feature, None, qst_att, img_att
     # fmt: on
     def get_name(self):
         return 'MCAoAN_vgg19'

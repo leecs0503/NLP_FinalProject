@@ -129,6 +129,7 @@ def generalized_iou_loss(gt_bboxes, pr_bboxes, is_debug=False):
 
 
 loss_flag = 1
+processed_name = dict()
 from PIL import Image
 class VQA_Trainer:
     """ """
@@ -253,20 +254,33 @@ class VQA_Trainer:
                     if 'vg' in phase:
                         continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
-                        # if 'train' in phase and batch_idx < 1500: # ~ 0530 1957
-                        #     continue
+                        if 'train' in phase and batch_idx < 65800: # ~ 0531 2157, 
+                            continue
                         # if 'valid' in phase and batch_idx < 500: #~ 0530 20 22
                         #     continue
                         img_path_list = batch_sample["image"]
                         transform = transforms.Compose([
                             transforms.ToTensor(),
                         ])
-                        image_list = [
-                            torch.tensor(
+                        image_list = []
+                        for img_path in img_path_list:
+                            if img_path in processed_name:
+                                continue
+                            processed_name[img_path] = 1
+                            image_list.append(torch.tensor(
                                 transform(Image.open(img_path).convert("RGB"))
-                            ).to(self.device)
-                            for img_path in img_path_list
-                        ]
+                            ).to(self.device))
+                        if len(image_list) == 0:
+                            msg = "| Preprocess | {} SET | Step [{:04d}/{:04d}]".format(
+                                phase.upper(),
+                                batch_idx,
+                                int(
+                                    len(self.data_loader[phase].dataset)
+                                    / self.data_loader[phase].batch_size
+                                ),
+                            )
+                            print(msg)
+                            continue
                         name = batch_sample["name"]
                         feats, scores = self.model.ImagePreChannel(image_list)
                         for i, (feat, score) in enumerate(zip(feats,scores)):
@@ -309,7 +323,7 @@ class VQA_Trainer:
 
             if "vqa" in phase:
                 batch_size =  self.data_loader[phase].batch_size
-                trr = 180 * 256 // batch_size if "train" in phase else 50 * 256 // batch_size
+                trr = 65400 * 4 // batch_size if "train" in phase else len(self.data_loader[phase])
                 for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
                     if batch_idx > trr:
                         break
@@ -347,7 +361,7 @@ class VQA_Trainer:
                     optimizer.zero_grad()
 
                     with torch.set_grad_enabled("train" in phase):
-                        vqa_out, vg_out = self.model(
+                        vqa_out, vg_out, _, _ = self.model(
                             image_feat, image_mask, question
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
