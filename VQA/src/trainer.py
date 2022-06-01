@@ -254,19 +254,17 @@ class VQA_Trainer:
                     if 'vg' in phase:
                         continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
-                        if 'train' in phase and batch_idx < 65800: # ~ 0531 2157, 
-                            continue
-                        # if 'valid' in phase and batch_idx < 500: #~ 0530 20 22
-                        #     continue
                         img_path_list = batch_sample["image"]
                         transform = transforms.Compose([
                             transforms.ToTensor(),
                         ])
                         image_list = []
+                        img_cat_list = []
                         for img_path in img_path_list:
                             if img_path in processed_name:
                                 continue
                             processed_name[img_path] = 1
+                            img_cat_list.append(img_path)
                             image_list.append(torch.tensor(
                                 transform(Image.open(img_path).convert("RGB"))
                             ).to(self.device))
@@ -283,9 +281,11 @@ class VQA_Trainer:
                             continue
                         name = batch_sample["name"]
                         feats, scores = self.model.ImagePreChannel(image_list)
-                        for i, (feat, score) in enumerate(zip(feats,scores)):
-                            rname = name[i].replace("Resized_Images", "Image_Tensors").replace("jpg", "npy")
-                            scorename = name[i].replace("Resized_Images", "Image_Scores").replace("jpg", "npy")
+                        for (img_path, feat, score) in zip(img_cat_list, feats, scores):
+                            rname = img_path
+                            rname = rname.replace("Images", "Image_Tensors").replace("jpg", "npy")
+                            scorename = img_path
+                            scorename = scorename.replace("Images", "Image_Scores").replace("jpg", "npy")
                             with open(rname,'wb') as f:
                                 na = feat.cpu().numpy()
                                 np.save(f, na)
@@ -313,7 +313,8 @@ class VQA_Trainer:
             optimizer.zero_grad()
             if "vg" in phase:
                 continue
-
+            # if 'train' in phase:
+            #     continue
             if "train" in phase:
                 optimizer.step()
                 scheduler.step(epoch)
@@ -323,7 +324,8 @@ class VQA_Trainer:
 
             if "vqa" in phase:
                 batch_size =  self.data_loader[phase].batch_size
-                trr = 65400 * 4 // batch_size if "train" in phase else len(self.data_loader[phase])
+                trr = len(self.data_loader[phase])
+                # trr = 65400 * 4 // batch_size if "train" in phase else len(self.data_loader[phase])
                 for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
                     if batch_idx > trr:
                         break

@@ -176,7 +176,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--image_tensor_load",
         type=bool,
-        default=False,
+        default=True,
         help="preprocessed image tensor load?",
     )
 
