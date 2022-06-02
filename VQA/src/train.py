@@ -142,7 +142,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--hidden_layer_size",
         type=int,
-        default=128,
+        default=512,
         help="hidden layer size in the LSTM.",
     )
 

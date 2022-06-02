@@ -521,7 +521,7 @@ class MCAoAN(nn.Module):
         return vqa_feature, None, qst_att, img_att
     # fmt: on
     def get_name(self):
-        return 'MCAoAN_vgg19'
+        return 'MCAoAN_vgg19_img1'
     def get_params(self):
         return self.parameters()
         # (

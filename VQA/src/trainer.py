@@ -327,8 +327,8 @@ class VQA_Trainer:
                 trr = len(self.data_loader[phase])
                 # trr = 65400 * 4 // batch_size if "train" in phase else len(self.data_loader[phase])
                 for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
-                    if batch_idx > trr:
-                        break
+                    # if batch_idx > trr:
+                    #     break
                     # if batch_idx > 300:
                     #     if epoch <= 10:
                     #         break
@@ -394,9 +394,9 @@ class VQA_Trainer:
                     )
                 # Print the average loss and accuracy in an epoch.
                 epoch_loss = running_loss / batch_step_size
-                epoch_acc_exp = running_corr_exp.double() / trr / batch_size # / len(
-                #     self.data_loader[phase].dataset
-                # )
+                epoch_acc_exp = running_corr_exp.double() / len(
+                    self.data_loader[phase].dataset
+                )
                 self.log_step(
                     epoch_loss=epoch_loss,
                     epoch_acc_exp=epoch_acc_exp,
