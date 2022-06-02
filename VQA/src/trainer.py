@@ -349,7 +349,7 @@ class VQA_Trainer:
                             np.load(
                                 x.replace("Resized_Images", "Image_Scores").replace("jpg", "npy")
                             )
-                        )[:max_sub_img_num] > score_thr
+                        )[:max_sub_img_num] < score_thr
                     for x in name]).to(self.device)
 
                     question = batch_sample["question"].to(self.device)
