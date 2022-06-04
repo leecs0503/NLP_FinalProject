@@ -142,7 +142,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--hidden_layer_size",
         type=int,
-        default=128,
+        default=72,
         help="hidden layer size in the LSTM.",
     )
 
@@ -212,7 +212,7 @@ def get_argument() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--step_size", type=int, default=10, help="period of learning rate decay."
+        "--step_size", type=int, default=5, help="period of learning rate decay."
     )
 
     parser.add_argument(

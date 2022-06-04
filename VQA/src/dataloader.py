@@ -297,7 +297,7 @@ def load_VQA_DataLoader(
         torch.Tensor: 모델이 반환한 텐서
     """
     # TODO: need to edit
-    is_suffle = False
+    is_suffle = True
     return {
         "train_vg": load_vg_data_loader(
             image_tensor_load=image_tensor_load,

@@ -334,7 +334,7 @@ class VQA_Trainer:
                     #         break
                     # todo: 아래 로직을 함수로 빼기
                     name = batch_sample["name"]
-                    max_sub_img_num = 10
+                    max_sub_img_num = 20
                     image_feat = torch.stack([
                         torch.from_numpy(
                             np.load(
@@ -487,6 +487,8 @@ class VQA_Trainer:
         if loss_flag == 1:
             criterion = nn.BCELoss(reduction='sum').to(self.device)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        # milestones = [i for i in range(10, num_epochs, 2)]
+        # scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
         scheduler_warmup = GradualWarmupScheduler(optimizer=optimizer, multiplier=1, total_epoch=3, after_scheduler=scheduler)
         '''
         CosineAnnealingWarmuoRestarts 

@@ -417,7 +417,7 @@ class MCAoAN(nn.Module):
         embed_size: int = 1024,
         layer: int = 6,
         multi_modal_dropout: float = 0.2,
-        max_sub_img_num: int = 10,
+        max_sub_img_num: int = 20,
     ):
         """
         Args:
@@ -431,7 +431,7 @@ class MCAoAN(nn.Module):
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
         super().__init__()
-        self.embedding_size=embedding_size
+        self.embed_size=embed_size
         self.max_sub_img_num=max_sub_img_num
         self.ImagePreChannel = ImagePreChannel()
         self.image_channel = ImageChannel(embed_size=embed_size, in_features=self.ImagePreChannel.out_features)
@@ -524,7 +524,7 @@ class MCAoAN(nn.Module):
         return vqa_feature, None, qst_att, img_att
     # fmt: on
     def get_name(self):
-        return f'MCAoAN_vgg19_img{self.max_sub_img_num}_emb{self.embedding_size}'
+        return f'MCAoAN_vgg19_img{self.max_sub_img_num}_emb{self.embed_size}'
     def get_params(self):
         return self.parameters()
         # (
