@@ -2,7 +2,7 @@ import os
 import argparse
 import numpy as np
 import random
-from utils import text_helper, vocab_dict
+from utils import vocab_dict
 from preprocess import text_preprocess
 from preprocess import image_preprocess
 from preprocess import create_input
@@ -35,41 +35,60 @@ def preprocess(args):
 
     print("3. Creating VQA inputs...")
 
-    image_dir = os.path.join(image_output_dir, "%s")
-    annotation_file = os.path.join(
-        annotation_input_dir, "v2_mscoco_%s_annotations.json"
+    # image_dir = os.path.join(image_output_dir, "%s")
+    # annotation_file = os.path.join(
+    #     annotation_input_dir, "v2_mscoco_%s_annotations.json"
+    # )
+    # question_file = os.path.join(
+    #     question_input_dir, "v2_OpenEnded_mscoco_%s_questions.json"
+    # )
+
+    # vocab_answer_file = os.path.join(args.output_dir, "vocab_answers.txt")
+    # answer_dict = vocab_dict.VocabDict(vocab_answer_file)
+    # valid_answer_set = set(answer_dict.word_list)
+
+    # train = create_input.vqa_processing(
+    #     image_dir, annotation_file, question_file, valid_answer_set, "train2014"
+    # )
+    # valid_original = create_input.vqa_processing(
+    #     image_dir, annotation_file, question_file, valid_answer_set, "val2014"
+    # )
+    # test = create_input.vqa_processing(
+    #     image_dir, annotation_file, question_file, valid_answer_set, "test2015"
+    # )
+    # test_dev = create_input.vqa_processing(
+    #     image_dir, annotation_file, question_file, valid_answer_set, "test-dev2015"
+    # )
+
+    # index = list(range(len(valid_original)))
+    # random.shuffle(index)
+    # valid = [valid_original[i] for o, i in enumerate(index) if o < len(index) / 2]
+    # valid_test = [valid_original[i] for o, i in enumerate(index) if o >= len(index) / 2]
+
+    # np.save(os.path.join(args.vqa_output_dir, "train.npy"), np.array(train))
+    # np.save(os.path.join(args.vqa_output_dir, "valid.npy"), np.array(valid))
+    # np.save(os.path.join(args.vqa_output_dir, "valid_test.npy"), np.array(valid_test))
+    # np.save(os.path.join(args.vqa_output_dir, "test.npy"), np.array(test))
+    # np.save(os.path.join(args.vqa_output_dir, "test-dev.npy"), np.array(test_dev))
+
+    print("4. Creating Visual Grounding inputs...")
+
+    vg_train_data = create_input.visual_grounding_processing(
+        phase="train",
+        image_dir=os.path.join(image_output_dir,'train2014'),
+        dataset_file=args.vg_dataset_file,
+        instances_file=args.vg_instances_file,
     )
-    question_file = os.path.join(
-        question_input_dir, "v2_OpenEnded_mscoco_%s_questions.json"
+    
+    vg_val_data = create_input.visual_grounding_processing(
+        phase="val",
+        image_dir=os.path.join(image_output_dir,'train2014'),
+        dataset_file=args.vg_dataset_file,
+        instances_file=args.vg_instances_file,
     )
 
-    vocab_answer_file = os.path.join(args.output_dir, "vocab_answers.txt")
-    answer_dict = vocab_dict.VocabDict(vocab_answer_file)
-    valid_answer_set = set(answer_dict.word_list)
-
-    train = create_input.vqa_processing(
-        image_dir, annotation_file, question_file, valid_answer_set, "train2014"
-    )
-    valid_original = create_input.vqa_processing(
-        image_dir, annotation_file, question_file, valid_answer_set, "val2014"
-    )
-    test = create_input.vqa_processing(
-        image_dir, annotation_file, question_file, valid_answer_set, "test2015"
-    )
-    test_dev = create_input.vqa_processing(
-        image_dir, annotation_file, question_file, valid_answer_set, "test-dev2015"
-    )
-
-    index = list(range(len(valid_original)))
-    random.shuffle(index)
-    valid = [valid_original[i] for o, i in enumerate(index) if o < len(index) / 2]
-    valid_test = [valid_original[i] for o, i in enumerate(index) if o >= len(index) / 2]
-
-    np.save(os.path.join(args.vqa_output_dir, "train.npy"), np.array(train))
-    np.save(os.path.join(args.vqa_output_dir, "valid.npy"), np.array(valid))
-    np.save(os.path.join(args.vqa_output_dir, "valid_test.npy"), np.array(valid_test))
-    np.save(os.path.join(args.vqa_output_dir, "test.npy"), np.array(test))
-    np.save(os.path.join(args.vqa_output_dir, "test-dev.npy"), np.array(test_dev))
+    np.save(os.path.join(args.vg_output_dir, "vg_train.npy"), np.array(vg_train_data))
+    np.save(os.path.join(args.vg_output_dir, "vg_val.npy"), np.array(vg_val_data))
 
     print("Preprocessing Done.")
 
@@ -110,11 +129,33 @@ def get_argument() -> argparse.Namespace():
     )
 
     parser.add_argument(
-        "--skip_image", type=bool, default=False, help="skip image preprocess"
+        "--vg_image_dir",
+        type=str,
+        default=os.path.join("..","datasets","Images","train2014")
+    )
+    parser.add_argument(
+        "--vg_dataset_file",
+        type=str,
+        default=os.path.join("..","datasets","visual_ground","dataset.json")
+    )
+    parser.add_argument(
+        "--vg_instances_file",
+        type=str,
+        default=os.path.join("..","datasets","visual_ground","instances.json")
+    )
+    parser.add_argument(
+        "--vg_output_dir",
+        type=str,
+        default=os.path.join("..", "datasets"),
+        help="directory for outputs",
     )
 
     parser.add_argument(
-        "--skip_text", type=bool, default=False, help="skip text preprocess"
+        "--skip_image", type=bool, default=True, help="skip image preprocess"
+    )
+
+    parser.add_argument(
+        "--skip_text", type=bool, default=True, help="skip text preprocess"
     )
 
     return parser.parse_args()

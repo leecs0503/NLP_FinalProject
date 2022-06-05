@@ -4,6 +4,29 @@ from torch import linalg as LA
 import torch
 
 
+class ImagePreChannel(nn.Module):
+    def __init__(self):
+        """
+        Args:
+            embed_size(int): 이미지 채널의 out_features
+        """
+        super().__init__()
+        model = models.vgg19(pretrained=True)
+        self.in_features = model.classifier[-1].in_features
+        model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
+        self.model = model
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
+        Return:
+            torch.Tensor (shape=[batch_size, embed_size])
+        """
+        with torch.no_grad():
+            image_features = self.model(image)
+        y = 1//0
+
 class ImageChannel(nn.Module):
     def __init__(self, embed_size: int):
         """
@@ -17,16 +40,15 @@ class ImageChannel(nn.Module):
         self.model = model
         self.fc = nn.Linear(in_features, embed_size)
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+    def forward(self, image_feature: torch.Tensor) -> torch.Tensor:
         """
         Args:
             image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
         Return:
             torch.Tensor (shape=[batch_size, embed_size])
         """
-        with torch.no_grad():
-            image_features = self.model(image)
-        image_features = self.fc(image_features)  # (batch_size, embed_size)
+        image_feature = image_feature[:,0,:]
+        image_features = self.fc(image_feature)  # (batch_size, embed_size)
 
         l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         normalized = image_features.div(l2_norm)  # (batch_size, embed_size)
@@ -49,6 +71,7 @@ class TextChannel(nn.Module):
             word_embed_size(int): word embedding할 크기 (default 300)
             hidden_size(int): LSTM의 hidden layer 크기 (default 512)
             num_layers(int): stack된 LSTM의 개수 (default 2)
+            embed_size(int): output embed size 
         """
         super().__init__()
         self.embedding_layer: nn.Embedding = nn.Embedding(
@@ -94,13 +117,13 @@ class LSTM_VQA(nn.Module):
     ):
         """
         Args:
-            embed_size(int): 이미지 체널과 텍스트 체널에 ,
+            embed_size(int): 이미지 체널과 텍스트 체널의 embed size 
             qst_vocab_size(int): qustion vocab의 크기
             word_embed_size(int): word embedding할 크기 (default 300)
             num_layers(int): stack된 LSTM의 개수 (default 2)
             hidden_size(int): LSTM의 hidden layer 크기 (default 512)
-            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기),
-            dropout_rate(int): dropout시 적용할 하이퍼 파라메터,
+            ans_vocab_size(int): answer vocab의 크기 (output tensor의 크기)
+            dropout_rate(int): dropout시 적용할 하이퍼 파라메터
         Return:
             torch.Tensor (shape=[batch_size, ans_vocab_size])
         """
@@ -116,21 +139,23 @@ class LSTM_VQA(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
-
+    def get_name(self):
+        return 'VGG19+LSTM'
     # fmt: off
     def forward(
         self,
-        image: torch.Tensor,
+        image_feature: torch.Tensor,
+        image_mask: torch.Tensor,
         question: torch.Tensor,
     ):
         """
         Args:
             image(torch.Tensor): batch 크기만큼 들어있는 이미지 텐서 (shape=[batch_size, 3, 224, 224])
-            question(torch.Tensor): batch 크기만큼 들어있는 질의 텐서 (shape=[batch_size, max_qst_len])
+            question(torch.Tensor): batch 크기만큼 들어있는 질문의 텐서 (shape=[batch_size, max_qst_len])
         Return:
             torch.Tensor (shape = [batch_size, ans_vocab_size])
         """
-        img_feature = self.image_channel(image)                    # [batch_size, embed_size]
+        img_feature = self.image_channel(image_feature)                    # [batch_size, embed_size]
         qst_feature = self.text_channel(question)                  # [batch_size, embed_size]
         combined_feature = torch.mul(img_feature, qst_feature)     # [batch_size, embed_size]
         combined_feature = torch.tanh(combined_feature)             # [batch_size, embed_size]
@@ -139,7 +164,7 @@ class LSTM_VQA(nn.Module):
         combined_feature = torch.tanh(combined_feature)             # [batch_size, ans_vocab_size]
         combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
         combined_feature = self.fc2(combined_feature)              # [batch_size, ans_vocab_size]
-        return combined_feature
+        return combined_feature, None, None, None
     # fmt: on
 
     def get_params(self):

@@ -8,3 +8,11 @@
 temp.py
 /.pytest_cache/*
 /tests/dataloader/datasets/train.npy
+/05251227까지/*
+/05260248까지/*
+/05302156까지/*
+/06020152까지/*
+/multijoint_learning/*
+/node_module/*
+/final_model/*
+en_vectors_web_lg-2.1.0.tar.gz

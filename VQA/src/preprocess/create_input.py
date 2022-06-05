@@ -9,6 +9,48 @@ def extract_answers(q_answers: List[str], valid_answer_set):
     valid_answers = [answer for answer in all_answers if answer in valid_answer_set]
     return all_answers, valid_answers
 
+def visual_grounding_processing(
+    phase: str,
+    image_dir: str,
+    dataset_file:str,
+    instances_file:str,
+):
+    annotation_data = json.load(open(instances_file))["annotations"]
+    dataset_data = json.load(open(dataset_file))
+
+    bbox_set = dict()
+    for annotation in annotation_data:
+        id = annotation['id']
+        bbox = annotation['bbox']
+        bbox_set[id]=bbox
+
+    dataset = []
+    for data in dataset_data:
+        """
+        data: 
+            image_id(str): image 아이디
+            split(enum): 'val'|'train'
+            sentences : raw에 full sentence가 저장되어 있음
+            ann_id(str): annoset id
+        """
+        if data["split"] != phase:
+            continue
+        image_id = data['image_id']
+        image_path = os.path.join(image_dir, f'COCO_train2014_{image_id:012}.jpg')
+        ann_id = data['ann_id']
+        bbox = bbox_set[ann_id]
+        sentences = data["sentences"]
+        for sentence_data in sentences:
+            sentence = sentence_data["raw"]
+            vgInfo = dict(
+                image_id=image_id,
+                image_path=image_path,
+                sentence=sentence,
+                bbox=bbox
+            )
+            dataset.append(vgInfo)
+    return dataset
+
 
 def vqa_processing(
     image_dir: str,
@@ -62,3 +104,11 @@ def vqa_processing(
 
         dataset.append(iminfo)
     return dataset
+
+if __name__ == '__main__':
+    dataset = visual_grounding_processing(
+        'val',
+        './datasets/Images/train2014',
+        './datasets/visual_ground/dataset.json',
+        './datasets/visual_ground/instances.json'
+    )
