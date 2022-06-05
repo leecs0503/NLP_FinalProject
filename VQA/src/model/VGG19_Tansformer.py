@@ -30,7 +30,9 @@ class ImageChannel(nn.Module):
             torch.Tensor (shape=[batch_size, embed_size])
         """
         with torch.no_grad():
-            image_features = self.model(image)
+            # image_features = self.model(image)
+            image_features = image[:,0,:]
+            pass
         image_features = self.fc(image_features)  # (batch_size, embed_size)
 
         l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
@@ -112,12 +114,13 @@ class Transformer_VQA(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
         self.fc1 = nn.Linear(embed_size, ans_vocab_size)
         self.fc2 = nn.Linear(ans_vocab_size, ans_vocab_size)
-        self.fc3 = nn.Linear(embed_size, 4)
+        # self.fc3 = nn.Linear(embed_size, 4)
 
     # fmt: off
     def forward(
         self,
         image: torch.Tensor,
+        image_mask: torch.Tensor,
         question_embedding: torch.Tensor,
     ):
         """
@@ -137,13 +140,13 @@ class Transformer_VQA(nn.Module):
         vqa_feature = self.dropout(vqa_feature)          # [batch_size, ans_vocab_size]
 
         vqa_feature = self.fc2(vqa_feature)              # [batch_size, ans_vocab_size]
-        vg_feature = self.fc3(combined_feature)               # [batch_size, 4]
-        vg_feature = vg_feature.sigmoid() * 244
+        # vg_feature = self.fc3(combined_feature)               # [batch_size, 4]
+        # vg_feature = vg_feature.sigmoid() * 244
         
-        return vqa_feature, vg_feature
+        return vqa_feature, None, None, None # vg_feature
     # fmt: on
     def get_name(self):
-        return 'VGG19+Transformer-multijoint-learning'
+        return 'VGG19+Transformer'
     def get_params(self):
         return (
             list(self.image_channel.fc.parameters())

@@ -1,12 +1,13 @@
 import Main from './main';
-import './App.css';
+import { BrowserRouter, Route } from 'react-router-dom';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Route exact path="/" component={Main} />
-      {/* <Route path="/menu" component={Menu} /> */}
-    </BrowserRouter>
+    <Main />
+    // <BrowserRouter>
+    //   <Route exact path="/" component={Main} />
+    //   {/* <Route path="/menu" component={Menu} /> */}
+    // </BrowserRouter>
   );
 }
 

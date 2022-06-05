@@ -128,7 +128,7 @@ def generalized_iou_loss(gt_bboxes, pr_bboxes, is_debug=False):
 
 
 
-loss_flag = 1
+loss_flag = 0
 processed_name = dict()
 from PIL import Image
 class VQA_Trainer:
@@ -175,7 +175,8 @@ class VQA_Trainer:
         )
         print(load_path)
         states = torch.load(load_path)
-        self.model.load_state_dict(states["model_state_dict"])
+        self.model.load_state_dict(states["state_dict"])
+        return None
         return states["optimizer_state_dict"]
         
 
@@ -253,6 +254,8 @@ class VQA_Trainer:
                 for phase in self.data_loader:
                     if 'vg' in phase:
                         continue
+                    if 'train' in phase:
+                        continue
                     for batch_idx, batch_sample in enumerate(self.data_loader[phase]):
                         img_path_list = batch_sample["image"]
                         transform = transforms.Compose([
@@ -313,15 +316,20 @@ class VQA_Trainer:
             optimizer.zero_grad()
             if "vg" in phase:
                 continue
-            # if 'train' in phase:
-            #     continue
+            if 'train' in phase:
+                continue
             if "train" in phase:
                 optimizer.step()
                 scheduler.step(epoch)
                 self.model.train()
             else:
                 self.model.eval()
-
+            yes_or_no_cor = 0
+            yes_or_no_cnt = 0
+            digit_cor = 0
+            digit_cnt = 0
+            other_cor = 0
+            other_cnt = 0
             if "vqa" in phase:
                 batch_size =  self.data_loader[phase].batch_size
                 trr = len(self.data_loader[phase])
@@ -364,7 +372,7 @@ class VQA_Trainer:
 
                     with torch.set_grad_enabled("train" in phase):
                         vqa_out, vg_out, _, _ = self.model(
-                            image_feat, image_mask, question
+                            image_feat, image_mask, question_token
                         )  # [batch_size, ans_vocab_size=1000]
                         _, pred_exp = torch.max(vqa_out, 1)  # [batch_size]
                         if loss_flag == 0:
@@ -378,6 +386,28 @@ class VQA_Trainer:
 
                     # pred_exp[pred_exp == ans_unk_idx] = -9999
                     running_loss += loss.item()
+                    
+                    is_calc_testset = True
+                    if is_calc_testset:
+                        ans_vocab = self.data_loader[phase].dataset.answer_dict
+                        for i, my_answer in enumerate(pred_exp):
+                            count = 0
+                            for j in range(len(multi_choice)):
+                                gt_answer = multi_choice[j][i]
+                                if my_answer.cpu() == gt_answer:
+                                    count += 1
+                            real_ans:str = ans_vocab.idx2word(my_answer) 
+                            score = min(count / 3, 1)
+                            if real_ans == 'yes' or real_ans == 'no':
+                                yes_or_no_cor += score
+                                yes_or_no_cnt += 1
+                            elif real_ans.isdigit():
+                                digit_cor += score
+                                digit_cnt += 1
+                            else:
+                                other_cor += score
+                                other_cnt += 1
+
                     corr_exp = acc_open_ended(pred_exp, multi_choice)
                     batch_size = question.shape[0]
                     running_corr_exp += corr_exp
@@ -397,6 +427,9 @@ class VQA_Trainer:
                 epoch_acc_exp = running_corr_exp.double() / len(
                     self.data_loader[phase].dataset
                 )
+                print(f"yes or no: {yes_or_no_cor/yes_or_no_cnt}, cnt: {yes_or_no_cnt}, cor: {yes_or_no_cor}")
+                print(f"num: {digit_cor/digit_cnt}, cnt: {digit_cnt}, cor: {digit_cor}")
+                print(f"others: {other_cor/other_cnt}, cnt: {other_cnt}, cor: {other_cor}")
                 self.log_step(
                     epoch_loss=epoch_loss,
                     epoch_acc_exp=epoch_acc_exp,
@@ -497,7 +530,8 @@ class VQA_Trainer:
         #scheduler = CosineAnnealingWarmupRestarts(optimizer, first_cycle_steps=200, cycle_mult=1.0, max_lr=0.1, min_lr=0.001, warmup_steps=50, gamma=0.5)
 
         if start_epochs != 0:
-            optimizer.load_state_dict(self.load_model(start_epochs))
+            # optimizer.load_state_dict(self.load_model(start_epochs))
+            self.load_model(start_epochs)
 
         for epoch in range(start_epochs, num_epochs):
             early_stop = self.step(
@@ -508,6 +542,7 @@ class VQA_Trainer:
                 scheduler=scheduler,
             )
             if (epoch + 1) % save_step == 0:
-                self.save_model(epoch, optimizer)
+                pass
+                # self.save_model(epoch, optimizer)
             if early_stop == True:
                 break

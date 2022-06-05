@@ -36,6 +36,8 @@ class ImageChannel(nn.Module):
         super().__init__()
         model = models.vgg19(pretrained=True)
         in_features = model.classifier[-1].in_features
+        model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
+        self.model = model
         self.fc = nn.Linear(in_features, embed_size)
 
     def forward(self, image_feature: torch.Tensor) -> torch.Tensor:
@@ -46,7 +48,7 @@ class ImageChannel(nn.Module):
             torch.Tensor (shape=[batch_size, embed_size])
         """
         image_feature = image_feature[:,0,:]
-        image_features = self.fc(image_feature.squeeze(1))  # (batch_size, embed_size)
+        image_features = self.fc(image_feature)  # (batch_size, embed_size)
 
         l2_norm = LA.norm(image_features, ord=2, dim=1, keepdim=True)
         normalized = image_features.div(l2_norm)  # (batch_size, embed_size)
@@ -162,7 +164,7 @@ class LSTM_VQA(nn.Module):
         combined_feature = torch.tanh(combined_feature)             # [batch_size, ans_vocab_size]
         combined_feature = self.dropout(combined_feature)          # [batch_size, ans_vocab_size]
         combined_feature = self.fc2(combined_feature)              # [batch_size, ans_vocab_size]
-        return combined_feature, None
+        return combined_feature, None, None, None
     # fmt: on
 
     def get_params(self):

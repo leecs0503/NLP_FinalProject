@@ -5,6 +5,7 @@ import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
 import os
+import en_vectors_web_lg
 # batch_step_size = len(self.data_loader[phase].dataset) / batch_size
 
 
@@ -80,6 +81,10 @@ class Dataset(torch.utils.data.Dataset):
         self.vg_dataset = vg_dataset
         self.transform = transform
         self.image_tensor_load=image_tensor_load
+
+        spacy_tool = en_vectors_web_lg.load()
+
+        self.pretrained_embedding = np.array([spacy_tool(question_dict.idx2word(i)).vector for i in range(question_dict.vocab_size)])
         if len(dataset) > 0:
             self.load_ans = dataset[0].valid_answers is not None
             self.question_dict = question_dict

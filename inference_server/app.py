@@ -8,6 +8,8 @@ module_path = os.path.abspath(os.path.join('./.download_modules'))
 sys.path.append(module_path)
 
 from VQA.src.model.MCAoAN_vgg19 import MCAoAN
+from VQA.src.model.VGG19_LSTM import LSTM_VQA
+from VQA.src.model.VGG19_Transformer import Transformer_VQA
 from VQA.src.utils.vocab_dict import VocabDict
 from VQA.src.utils import text_helper
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
@@ -76,6 +78,14 @@ class VQA_Model(kserve.Model):
         self.mcaoan_model.load_state_dict(torch.load(args.model_dir)["model_state_dict"])
         self.mcaoan_model.eval().to(self.device)
 
+        # load LSTM model
+        self.lstm_model = LSTM_VQA(
+
+        )
+
+        # load SBERT model
+
+
     def tokenize_question(self, question):
         quest_idx_list = np.array(
             [self.qst_vocab.word2idx("<pad>")] * 30
@@ -97,7 +107,7 @@ class VQA_Model(kserve.Model):
 
     def predict(self, obj) -> Dict:
         (image_rgb, question) = obj
-        image_tensor = self.transform(image_rgb).unsqueeze(0).to(self.device)
+        image_tensor = self.transform(image_rgb)[0: 3].unsqueeze(0).to(self.device)
         image_feat, image_score = self.mcaoan_model.ImagePreChannel(image_tensor)
         
         score_thr = 0.2
@@ -153,6 +163,10 @@ class VQA_Model(kserve.Model):
 
         fig,ax = plt.subplots(1)
         ax.imshow(image_rgb)
+        ori_img_str = plt_to_base64_str(plt)
+
+        fig,ax = plt.subplots(1)
+        ax.imshow(image_rgb)
         for idx, obj in enumerate(imgs):
             box = obj["box"]
             att = obj["att"]
@@ -174,11 +188,14 @@ class VQA_Model(kserve.Model):
             img_pil = Image.fromarray(np.array(image_rgb)[y1:y2,x1:x2,0:3])
             ax.imshow(img_pil)
             print(f"{att.item():.2f}")
-            important_boxes.append(plt_to_base64_str(plt))
+            important_boxes.append({
+                "att": att.item(),
+                "str": plt_to_base64_str(plt),
+            })
 
         return {
             "ori_question": question,
-            "ori_image": encode_image(image_rgb),
+            "ori_image": ori_img_str,
             "question_data": question_data, 
             "boxed_image": boxed_image_str,
             "important_boxes": important_boxes,
@@ -191,9 +208,23 @@ if __name__ == "__main__":
     # directories
 
     parser.add_argument(
-        "--model_dir",
+        "--MCAoAN_model_dir",
         type=str,
         default="./models/MCAoAN_vgg19_img10_emb64-epoch-13.ckpt",
+        help="directory for model file",
+    )
+    
+    parser.add_argument(
+        "--LSTM_model_dir",
+        type=str,
+        default="./models/VGG19+LSTM-epoch-17.ckpt",
+        help="directory for model file",
+    )
+    
+    parser.add_argument(
+        "--SBERT_model_dir",
+        type=str,
+        default="./models/VGG19_Tansformer.py",
         help="directory for model file",
     )
     

@@ -115,7 +115,7 @@ def get_argument() -> argparse.Namespace:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="MCAoAN",
+        default="VGG19_Transformer",
         help="The name of the model",
     )
 
@@ -238,7 +238,7 @@ def main():
     data_loader = load_VQA_DataLoader(
         image_tensor_load=args.image_tensor_load,
         train_data_path=os.path.join(args.input_dir, "train.npy"),
-        valid_data_path=os.path.join(args.input_dir, "valid.npy"),
+        valid_data_path=os.path.join(args.input_dir, "valid_test.npy"),
         train_vg_data_path=os.path.join(args.input_dir, "vg_train.npy"),
         valid_vg_data_path=os.path.join(args.input_dir, "vg_val.npy"),
         qst_vocab_dict=VocabDict(os.path.join(args.input_dir, "vocab_questions.txt")),
@@ -292,6 +292,7 @@ def main():
             qst_vocab_size=qst_vocab_size,
             dropout_rate=args.dropout_rate,
             embed_size=args.hidden_layer_size,
+            pretrained_embedding=data_loader["train_vqa"].dataset.pretrained_embedding,
         ).to(device)
 
     else:

@@ -375,6 +375,7 @@ class TextChannel(nn.Module):
         word_embed_size: int = 300,
         hidden_size: int = 512,
         num_layers: int = 1,
+        pretrained_embedding = None,
     ):
         """
         Args:
@@ -386,6 +387,8 @@ class TextChannel(nn.Module):
         self.embedding_layer: nn.Embedding = nn.Embedding(
             num_embeddings=qst_vocab_size, embedding_dim=word_embed_size
         )
+        if pretrained_embedding is not None:
+            self.embedding_layer.weight.data.copy_(torch.from_numpy(pretrained_embedding))
         self.lstm = nn.LSTM(
             input_size=word_embed_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True,
         )
@@ -418,6 +421,7 @@ class MCAoAN(nn.Module):
         layer: int = 6,
         multi_modal_dropout: float = 0.2,
         max_sub_img_num: int = 20,
+        pretrained_embedding = None,
     ):
         """
         Args:
@@ -439,6 +443,7 @@ class MCAoAN(nn.Module):
             qst_vocab_size=qst_vocab_size,
             word_embed_size=embedding_size,
             hidden_size=embed_size,
+            pretrained_embedding=pretrained_embedding,
         )
         self.mcaoa = MCAoA(hidden_size=embed_size, layer=layer)
         self.mlp1 = MLP(embed_size, dropout_rate)
@@ -524,7 +529,7 @@ class MCAoAN(nn.Module):
         return vqa_feature, None, qst_att, img_att
     # fmt: on
     def get_name(self):
-        return f'MCAoAN_vgg19_img{self.max_sub_img_num}_emb{self.embed_size}'
+        return f'MCAoAN_vgg19_img{self.max_sub_img_num}_emb{self.embed_size}_glove'
     def get_params(self):
         return self.parameters()
         # (
