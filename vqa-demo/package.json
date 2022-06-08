@@ -22,6 +22,7 @@
     "react-dom": "^18.1.0",
     "react-hook-form": "^7.31.3",
     "react-icons": "^3.11.0",
+    "react-responsive": "^9.0.0-beta.10",
     "react-scripts": "5.0.1",
     "typescript": "^4.7.2",
     "web-vitals": "^0.2.4"
@@ -47,5 +48,5 @@
       "last 1 safari version"
     ]
   },
-	"proxy": "http://localhost:8383"
+  "proxy": "http://localhost:8383"
 }

@@ -1,5 +1,6 @@
 /* External dependencies */
 import * as React from "react"
+import { useMediaQuery } from 'react-responsive'
 import {
   ChakraProvider,
   HStack,
@@ -31,27 +32,46 @@ const VqaResultInitialState : VqaResultProps = {
 
 export const App = () => {
   const [vqaResult, setVqaResult] = React.useState(VqaResultInitialState)
-
+  
+  const isDesktopOrLaptop = useMediaQuery({
+    query: '(min-width: 520px)'
+  })
   return (
     <ChakraProvider theme={theme}>
       <Header />
       <Hero />
-      <HStack
-        divider={<StackDivider borderColor='gray.200'/>}
-        spacing={4}
-        alignItems='flex-start'
-        mx='118px'
-        mb={8}
-      >
-        <VQAInputScreen
-          setVqaResult={setVqaResult}
-        />
-        <VQAOutPutScreen
-          MCAoAN={vqaResult.MCAoAN}
-          LSTM={vqaResult.LSTM}
-          SBERT={vqaResult.SBERT}
-        />
-      </HStack>
+      {
+        isDesktopOrLaptop && <HStack
+          divider={<StackDivider borderColor='gray.200'/>}
+          spacing={4}
+          alignItems='flex-start'
+          mx='118px'
+          mb={8}
+        >
+          <VQAInputScreen
+            setVqaResult={setVqaResult}
+          />
+          <VQAOutPutScreen
+            MCAoAN={vqaResult.MCAoAN}
+            LSTM={vqaResult.LSTM}
+            SBERT={vqaResult.SBERT}
+          />
+        </HStack>
+      }
+      {
+        !isDesktopOrLaptop && 
+        <React.Fragment>
+          <VQAInputScreen
+            setVqaResult={setVqaResult}
+          />
+          <VQAOutPutScreen
+            MCAoAN={vqaResult.MCAoAN}
+            LSTM={vqaResult.LSTM}
+            SBERT={vqaResult.SBERT}
+          />
+        </React.Fragment>
+      }
+      
     </ChakraProvider>
   )
 }

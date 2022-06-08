@@ -21,6 +21,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 from matplotlib.patches import Rectangle
+import logging
+import datetime
 
 def encode_image(image):
     buffered = BytesIO()
@@ -47,6 +49,18 @@ class VQA_Model(kserve.Model):
             # normalize
         ])
         self.max_sub_img_num = args.max_sub_img_num
+
+        self.logger = logging.getLogger("VQA_Trainer logger")
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+
+        file_handler = logging.FileHandler(
+            os.path.join(args.log_path, str(datetime.now()) + ".log")
+        )
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
 
     def model_load(
         self,
@@ -80,7 +94,13 @@ class VQA_Model(kserve.Model):
 
         # load LSTM model
         self.lstm_model = LSTM_VQA(
-
+            dropout_rate=0.5,
+            embed_size=1024,
+            qst_vocab_size=self.qst_vocab_size,
+            word_embed_size=300,
+            num_layers=2,
+            hidden_size=512,
+            ans_vocab_size=self.ans_vocab_size,
         )
 
         # load SBERT model
@@ -242,13 +262,19 @@ if __name__ == "__main__":
         help="mcaoan model's process image num",
     )
     
-    
+    parser.add_argument(
+        "--log_path",
+        type=str,
+        default='./logs',
+    )
+
     parser.add_argument(
         "--vocab_dir",
         type=str,
         default="./vocab",
         help="directory for model file",
     )
+
     args = parser.parse_args()
 
     model = VQA_Model("vqa-model", args)
